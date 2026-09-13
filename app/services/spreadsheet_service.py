@@ -579,3 +579,13 @@ def reset_all_data(keep_default_templates: bool = True) -> str:
 
     return backup_file.name
 
+def load_sample_template_data() -> Dict[str, int]:
+    """Loads the Google Spreadsheet sample data from templates directory."""
+    from app.core.config import BASE_DIR
+    sample_file = BASE_DIR / "templates" / "household_account_template.xlsx"
+    if sample_file.exists():
+        with open(sample_file, "rb") as f:
+            return import_from_excel_file(f.read())
+    return {"variable_expenses": 0, "fixed_incomes": 0, "fixed_expenses": 0, "savings": 0}
+
+

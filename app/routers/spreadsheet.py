@@ -78,3 +78,14 @@ def reset_database(payload: ResetRequest):
         "backup_file": backup_name
     }
 
+@router.post("/load-sample")
+def load_sample_data():
+    from app.services.spreadsheet_service import load_sample_template_data
+    counts = load_sample_template_data()
+    return {
+        "status": "success",
+        "message": "구글 스프레드시트 예시 데이터를 로드했습니다.",
+        "imported": counts
+    }
+
+

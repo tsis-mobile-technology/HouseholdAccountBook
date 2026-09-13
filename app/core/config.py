@@ -7,7 +7,7 @@ BACKUP_DIR = DATA_DIR / "backups"
 EXPORT_DIR = BASE_DIR / "exports"
 STATIC_DIR = BASE_DIR / "app" / "static"
 
-DB_PATH = DATA_DIR / "account_book.db"
+DB_PATH = Path(os.getenv("DB_PATH", str(DATA_DIR / "account_book.db")))
 
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))

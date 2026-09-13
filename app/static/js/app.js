@@ -730,6 +730,20 @@ function downloadJsonBackup() {
   window.location.href = '/api/spreadsheet/backup-json';
 }
 
+async function loadSampleSpreadsheetData() {
+  if (!confirm('구글 스프레드시트 예시 데이터를 로드하시겠습니까?\n(기존 데이터에 추가/갱신됩니다)')) return;
+  try {
+    const res = await fetch('/api/spreadsheet/load-sample', { method: 'POST' });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.detail || '로드 실패');
+    alert(`예시 데이터가 로드되었습니다!\n- 변동 지출: ${result.imported.variable_expenses}건\n- 고정 수입: ${result.imported.fixed_incomes}건\n- 고정 지출: ${result.imported.fixed_expenses}건\n- 저축/투자: ${result.imported.savings}건`);
+    closeBackupModal();
+    refreshData();
+  } catch (err) {
+    alert('로드 실패: ' + err.message);
+  }
+}
+
 async function handleJsonRestore(e) {
   const file = e.target.files[0];
   if (!file) return;
