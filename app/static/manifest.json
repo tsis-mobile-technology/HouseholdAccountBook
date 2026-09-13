@@ -1,0 +1,17 @@
+{
+  "name": "HouseholdAccountBook 스마트 파스텔 가계부",
+  "short_name": "스마트 가계부",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F0F4FF",
+  "theme_color": "#DED2F9",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/icons/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

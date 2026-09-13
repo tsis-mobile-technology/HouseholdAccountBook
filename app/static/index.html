@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>HouseholdAccountBook | 스마트 파스텔 가계부</title>
+  <meta name="description" content="크로스 플랫폼 스마트 가계부 - PC 호스트 및 스마트폰 모바일 웹 퀵 지출 등록">
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#DED2F9">
+  <link rel="icon" type="image/svg+xml" href="/static/icons/icon.svg">
+  <!-- Tailwind CSS & Chart.js CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Custom Glassmorphism Styles -->
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <!-- Top App Header -->
+  <header class="app-header flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <img src="/static/icons/icon.svg" alt="Logo" class="w-9 h-9 rounded-xl shadow-sm">
+      <div>
+        <h1 class="font-bold text-base md:text-lg text-gray-800 flex items-center gap-2">
+          스마트 가계부
+          <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">v1.1</span>
+        </h1>
+        <p class="text-xs text-gray-500 hidden sm:block">Google 스프레드시트 100% 호환 · 파스텔 글라스 에디션</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- Year Selector -->
+      <select id="yearSelector" class="glass-input text-xs font-semibold py-1.5 px-3 rounded-lg w-auto cursor-pointer" onchange="onYearChange()">
+        <option value="2026" selected>2026년</option>
+        <option value="2027">2027년</option>
+        <option value="2028">2028년</option>
+      </select>
+
+      <!-- QR Mobile Connect Button -->
+      <button onclick="openQRModal()" class="btn-pastel btn-purple btn-sm" title="스마트폰 연결 QR 코드">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+        </svg>
+        <span class="hidden md:inline">폰 연결 QR</span>
+      </button>
+
+      <!-- Backup / Export Button -->
+      <button onclick="openBackupModal()" class="btn-pastel btn-ghost btn-sm" title="스프레드시트 엑셀 및 데이터 백업">
+        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+        </svg>
+        <span class="hidden md:inline">엑셀 / 백업</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- PC / Tablet Tabs Navigation -->
+  <nav class="hidden md:flex items-center justify-start gap-1.5 px-6 py-2.5 overflow-x-auto border-b border-white/60 bg-white/40">
+    <button onclick="switchTab('today')" id="tab-btn-today" class="category-chip active font-bold">
+      ⚡ 오늘 빠른등록
+    </button>
+    <button onclick="switchTab('annual')" id="tab-btn-annual" class="category-chip font-bold">
+      📊 연간 대시보드
+    </button>
+    <div class="h-4 w-px bg-gray-300 mx-1"></div>
+    <!-- 1월 ~ 12월 Tabs -->
+    <div id="monthTabsContainer" class="flex items-center gap-1">
+      <!-- Injected by JS -->
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 py-4 space-y-6">
+
+    <!-- ====================================================================
+         SECTION 1: TODAY QUICK ENTRY VIEW (Default & Mobile Main)
+         ==================================================================== -->
+    <div id="view-today" class="space-y-5">
+      <!-- Date Banner -->
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-purple-600">Daily Personal Finance</span>
+          <h2 id="todayDateTitle" class="text-xl md:text-2xl font-black text-gray-800">오늘의 가계부</h2>
+        </div>
+        <button onclick="refreshData()" class="p-2 rounded-xl bg-white/60 hover:bg-white text-gray-600 transition shadow-sm" title="새로고침">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Top Glass KPI Cards Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Card 1: Today's Expense -->
+        <div class="glass-panel p-5 relative overflow-hidden">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-gray-500">오늘 지출 합계</span>
+            <span id="todayCountBadge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-600">0건</span>
+          </div>
+          <div class="flex items-baseline gap-1">
+            <span id="todayAmountText" class="text-3xl font-black text-gray-800">0</span>
+            <span class="text-sm font-semibold text-gray-500">원</span>
+          </div>
+          <p class="text-xs text-gray-400 mt-2">스마트폰에서 매일 3초 만에 기록하세요</p>
+        </div>
+
+        <!-- Card 2: This Month's Overview -->
+        <div class="glass-panel p-5 relative overflow-hidden sm:col-span-1 lg:col-span-2">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-gray-500"><span id="currMonthLabel">9</span>월 재무 현황 요약</span>
+            <span id="savingsRateBadge" class="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">저축률 0%</span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center my-2">
+            <div class="p-2 rounded-xl bg-white/40">
+              <span class="text-[11px] text-gray-500 block">총 수입</span>
+              <span id="monthIncomeText" class="text-sm md:text-base font-bold text-emerald-600">0원</span>
+            </div>
+            <div class="p-2 rounded-xl bg-white/40">
+              <span class="text-[11px] text-gray-500 block">고정 지출</span>
+              <span id="monthFixedExpText" class="text-sm md:text-base font-bold text-indigo-600">0원</span>
+            </div>
+            <div class="p-2 rounded-xl bg-white/40">
+              <span class="text-[11px] text-gray-500 block">변동 지출</span>
+              <span id="monthVarExpText" class="text-sm md:text-base font-bold text-rose-600">0원</span>
+            </div>
+            <div class="p-2 rounded-xl bg-white/40">
+              <span class="text-[11px] text-gray-500 block">당월 잔액</span>
+              <span id="monthBalanceText" class="text-sm md:text-base font-bold text-purple-700">0원</span>
+            </div>
+          </div>
+          <!-- Progress bar -->
+          <div class="progress-bar-container">
+            <div id="budgetProgressBar" class="progress-bar-fill bg-gradient-to-r from-emerald-400 via-teal-400 to-indigo-500" style="width: 0%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Expense Entry Card -->
+      <div class="glass-panel p-5 md:p-6 border-2 border-purple-200/60">
+        <h3 class="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-purple-200 flex items-center justify-center text-purple-700 text-xs">⚡</span>
+          오늘 지출 빠른 등록
+        </h3>
+
+        <form id="quickExpenseForm" onsubmit="handleQuickSubmit(event)" class="space-y-4">
+          <!-- Date & Amount Row -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">지출 일자</label>
+              <input type="date" id="inputDate" class="glass-input" required>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">금액 (원)</label>
+              <div class="relative">
+                <input type="number" id="inputAmount" placeholder="0" min="0" step="100" class="glass-input pr-10 font-bold text-lg text-purple-900" required>
+                <span class="absolute right-3 top-2.5 text-sm font-semibold text-gray-400">원</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Amount Helper Buttons -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs text-gray-400">빠른 금액:</span>
+            <button type="button" onclick="addAmount(5000)" class="quick-amt-btn">+5천</button>
+            <button type="button" onclick="addAmount(10000)" class="quick-amt-btn">+1만</button>
+            <button type="button" onclick="addAmount(50000)" class="quick-amt-btn">+5만</button>
+            <button type="button" onclick="addAmount(100000)" class="quick-amt-btn">+10만</button>
+            <button type="button" onclick="clearAmount()" class="quick-amt-btn text-rose-500">지우기</button>
+          </div>
+
+          <!-- Category Chips -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1.5">카테고리 분류 (원터치 선택)</label>
+            <div id="categoryChipsList" class="flex items-center gap-2 overflow-x-auto pb-1">
+              <!-- Dynamically populated -->
+            </div>
+            <input type="hidden" id="selectedCategoryId" value="1">
+          </div>
+
+          <!-- Item Title & Payment Method -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">지출내용 (사용처/상호)</label>
+              <input type="text" id="inputTitle" placeholder="예: 스타벅스, 마트 장보기" list="commonTitles" class="glass-input" required>
+              <datalist id="commonTitles">
+                <option value="스타벅스">
+                <option value="편의점">
+                <option value="이마트/홈플러스">
+                <option value="대중교통(지하철/버스)">
+                <option value="주유소">
+                <option value="약국/병원">
+                <option value="배달의민족">
+                <option value="다이소">
+              </datalist>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">결제 수단</label>
+              <div id="paymentPillsList" class="flex items-center gap-1.5 flex-wrap pt-1">
+                <!-- Dynamically populated -->
+              </div>
+              <input type="hidden" id="selectedPaymentId" value="1">
+            </div>
+          </div>
+
+          <!-- Memo (Optional) -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">비고 (메모, 선택사항)</label>
+            <input type="text" id="inputMemo" placeholder="추가 메모를 입력하세요" class="glass-input text-sm">
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" id="btnSubmitExpense" class="btn-pastel btn-primary w-full py-3 text-base shadow-md font-bold">
+            ✨ 지출 등록 완료
+          </button>
+        </form>
+      </div>
+
+      <!-- Today's Transaction History -->
+      <div class="glass-panel p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm md:text-base font-bold text-gray-800">📋 오늘 등록한 지출 내역</h3>
+          <span class="text-xs text-gray-400">실시간 동기화</span>
+        </div>
+        <div id="todayTransactionsList" class="space-y-2">
+          <!-- Populated by JS -->
+          <div class="p-6 text-center text-gray-400 text-sm">오늘 등록된 지출 내역이 없습니다.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         SECTION 2: MONTHLY BREAKDOWN VIEW (1월 ~ 12월 탭)
+         ==================================================================== -->
+    <div id="view-month" class="space-y-6 hidden">
+      <!-- Month Header & Summary -->
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <h2 id="monthDetailTitle" class="text-xl md:text-2xl font-black text-gray-800">2026년 9월 상세 가계부</h2>
+        <div class="flex items-center gap-2">
+          <button onclick="saveCurrentMonthFixedPlans(false)" class="btn-pastel btn-primary btn-sm">
+            💾 월별 고정계획 저장
+          </button>
+          <button onclick="saveCurrentMonthFixedPlans(true)" class="btn-pastel btn-purple btn-sm" title="모든 월의 기본값으로 저장">
+            ⭐ 기본 템플릿으로 저장
+          </button>
+        </div>
+      </div>
+
+      <!-- Monthly KPI Cards (Google Sheet Summary 1:1) -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div class="glass-card p-3 text-center border-emerald-200">
+          <span class="text-xs text-gray-500 block">총 수입</span>
+          <span id="tabMonthIncome" class="text-base font-bold text-emerald-600">0원</span>
+        </div>
+        <div class="glass-card p-3 text-center border-indigo-200">
+          <span class="text-xs text-gray-500 block">고정 지출</span>
+          <span id="tabMonthFixed" class="text-base font-bold text-indigo-600">0원</span>
+        </div>
+        <div class="glass-card p-3 text-center border-rose-200">
+          <span class="text-xs text-gray-500 block">변동 지출</span>
+          <span id="tabMonthVar" class="text-base font-bold text-rose-600">0원</span>
+        </div>
+        <div class="glass-card p-3 text-center border-purple-200">
+          <span class="text-xs text-gray-500 block">총 지출</span>
+          <span id="tabMonthTotalExp" class="text-base font-bold text-purple-700">0원</span>
+        </div>
+        <div class="glass-card p-3 text-center border-blue-200">
+          <span class="text-xs text-gray-500 block">저축 및 투자</span>
+          <span id="tabMonthSavings" class="text-base font-bold text-blue-600">0원</span>
+        </div>
+        <div class="glass-card p-3 text-center border-amber-200">
+          <span class="text-xs text-gray-500 block">당월 잔액</span>
+          <span id="tabMonthBalance" class="text-base font-bold text-amber-700">0원</span>
+        </div>
+      </div>
+
+      <!-- 2 Columns: Left (Fixed Incomes/Expenses/Savings) & Right (Variable Expenses) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left: Fixed Plans Management (5 Cols) -->
+        <div class="lg:col-span-5 space-y-5">
+          <!-- A. Fixed Income -->
+          <div class="glass-panel p-4">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-sm font-bold text-emerald-800 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> [A. 고정 수입]
+              </h4>
+              <button onclick="addFixedRow('income')" class="text-xs font-semibold text-emerald-700 hover:underline">+ 항목 추가</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs" id="fixedIncomeTable">
+                <thead>
+                  <tr class="text-gray-500 border-b">
+                    <th class="pb-1 text-left">항목</th>
+                    <th class="pb-1 text-left">예정일</th>
+                    <th class="pb-1 text-left">내용</th>
+                    <th class="pb-1 text-right">금액(원)</th>
+                    <th class="pb-1"></th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100" id="fixedIncomeBody">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- B. Fixed Expense -->
+          <div class="glass-panel p-4">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-sm font-bold text-indigo-800 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-indigo-500"></span> [B. 고정 지출]
+              </h4>
+              <button onclick="addFixedRow('expense')" class="text-xs font-semibold text-indigo-700 hover:underline">+ 항목 추가</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs" id="fixedExpenseTable">
+                <thead>
+                  <tr class="text-gray-500 border-b">
+                    <th class="pb-1 text-left">항목</th>
+                    <th class="pb-1 text-left">출금일</th>
+                    <th class="pb-1 text-left">내용/기관</th>
+                    <th class="pb-1 text-right">금액(원)</th>
+                    <th class="pb-1"></th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100" id="fixedExpenseBody">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- C. Savings & Investment -->
+          <div class="glass-panel p-4">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-sm font-bold text-blue-800 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span> [C. 저축 및 투자]
+              </h4>
+              <button onclick="addFixedRow('savings')" class="text-xs font-semibold text-blue-700 hover:underline">+ 항목 추가</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs" id="savingsTable">
+                <thead>
+                  <tr class="text-gray-500 border-b">
+                    <th class="pb-1 text-left">항목</th>
+                    <th class="pb-1 text-left">납입일</th>
+                    <th class="pb-1 text-left">금융기관/내용</th>
+                    <th class="pb-1 text-right">금액(원)</th>
+                    <th class="pb-1"></th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100" id="savingsBody">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Variable Expenses Table (7 Cols) -->
+        <div class="lg:col-span-7 space-y-4">
+          <div class="glass-panel p-4">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+              <h4 class="text-sm font-bold text-rose-800 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-rose-500"></span> [D. 이달의 변동 지출 내역]
+              </h4>
+              <div class="flex items-center gap-2">
+                <select id="filterCategory" onchange="loadMonthVariableExpenses()" class="glass-input text-xs py-1 px-2 rounded-lg w-auto">
+                  <option value="">전체 카테고리</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Table -->
+            <div class="overflow-x-auto max-h-[600px]">
+              <table class="spreadsheet-table">
+                <thead>
+                  <tr>
+                    <th>일자</th>
+                    <th>분류</th>
+                    <th>지출내용</th>
+                    <th>결제수단</th>
+                    <th>금액(원)</th>
+                    <th>비고</th>
+                    <th>삭제</th>
+                  </tr>
+                </thead>
+                <tbody id="monthVarExpenseBody">
+                  <!-- Injected by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         SECTION 3: ANNUAL DASHBOARD VIEW (Google Spreadsheet 연간 대시보드 1:1)
+         ==================================================================== -->
+    <div id="view-annual" class="space-y-6 hidden">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-purple-600">Annual Personal Finance Dashboard</span>
+          <h2 id="annualTitle" class="text-xl md:text-2xl font-black text-gray-800">2026년 연간 가계부 대시보드</h2>
+        </div>
+        <button onclick="downloadExcelFile()" class="btn-pastel btn-primary btn-sm flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          구글 시트 양식 엑셀(.xlsx) 다운로드
+        </button>
+      </div>
+
+      <!-- Annual Top KPI Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="glass-panel p-4 text-center">
+          <span class="text-xs text-gray-500 font-semibold block">연간 총 수입</span>
+          <span id="annTotalIncome" class="text-lg md:text-xl font-black text-emerald-600">0원</span>
+        </div>
+        <div class="glass-panel p-4 text-center">
+          <span class="text-xs text-gray-500 font-semibold block">연간 총 지출</span>
+          <span id="annTotalExpense" class="text-lg md:text-xl font-black text-rose-600">0원</span>
+        </div>
+        <div class="glass-panel p-4 text-center">
+          <span class="text-xs text-gray-500 font-semibold block">연간 저축/투자</span>
+          <span id="annTotalSavings" class="text-lg md:text-xl font-black text-blue-600">0원</span>
+        </div>
+        <div class="glass-panel p-4 text-center">
+          <span class="text-xs text-gray-500 font-semibold block">연평균 저축률</span>
+          <span id="annAvgRate" class="text-lg md:text-xl font-black text-purple-700">0%</span>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Chart 1: Bar & Line Combo (8 Cols) -->
+        <div class="lg:col-span-8 glass-panel p-5">
+          <h3 class="text-sm font-bold text-gray-800 mb-4">📈 월별 수입 vs 지출 vs 저축 추이 (1월 ~ 12월)</h3>
+          <div class="h-72">
+            <canvas id="annualTrendChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Category Donut (4 Cols) -->
+        <div class="lg:col-span-4 glass-panel p-5">
+          <h3 class="text-sm font-bold text-gray-800 mb-4">🍩 카테고리별 지출 비중</h3>
+          <div class="h-72 relative flex items-center justify-center">
+            <canvas id="categoryDonutChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Annual Spreadsheet Table -->
+      <div class="glass-panel p-5">
+        <h3 class="text-sm font-bold text-gray-800 mb-3">📊 연간 월별 재무 종합표 (구글 스프레드시트 1:1 매핑)</h3>
+        <div class="overflow-x-auto">
+          <table class="spreadsheet-table">
+            <thead>
+              <tr>
+                <th>월</th>
+                <th>총 수입(원)</th>
+                <th>고정 지출(원)</th>
+                <th>변동 지출(원)</th>
+                <th>총 지출(원)</th>
+                <th>저축/투자(원)</th>
+                <th>당월 잔액(원)</th>
+                <th>저축률</th>
+              </tr>
+            </thead>
+            <tbody id="annualTableBody">
+              <!-- Injected by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ====================================================================
+       MODALS
+       ==================================================================== -->
+
+  <!-- Modal 1: QR Code LAN Connection -->
+  <div id="modalQR" class="modal-backdrop hidden" onclick="closeQRModal(event)">
+    <div class="modal-content p-6 text-center" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-gray-800">📱 스마트폰 모바일 연결</h3>
+        <button onclick="closeQRModal()" class="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+      </div>
+      <p class="text-xs text-gray-500 mb-4">
+        스마트폰 기본 카메라로 QR 코드를 비추면 브라우저에서 가계부가 즉시 열립니다. (동일 Wi-Fi 연결 필요)
+      </p>
+      <div class="flex justify-center my-3">
+        <img id="modalQRImage" src="" alt="QR Code" class="w-56 h-56 rounded-2xl shadow-md border-4 border-white">
+      </div>
+      <div class="p-3 rounded-xl bg-purple-50 text-purple-800 font-mono text-xs break-all mt-3">
+        <span class="block text-[10px] text-gray-400 uppercase font-sans mb-1">모바일 직접 접속 주소</span>
+        <span id="modalQRUrl">http://...</span>
+      </div>
+      <button onclick="closeQRModal()" class="btn-pastel btn-primary w-full mt-4">확인</button>
+    </div>
+  </div>
+
+  <!-- Modal 2: Backup & Spreadsheet Hub -->
+  <div id="modalBackup" class="modal-backdrop hidden" onclick="closeBackupModal(event)">
+    <div class="modal-content p-6" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-gray-800">💾 데이터 백업 및 스프레드시트 관리</h3>
+        <button onclick="closeBackupModal()" class="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <!-- 1. Google Spreadsheet Export -->
+        <div class="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200">
+          <h4 class="font-bold text-emerald-800 mb-1">📊 구글 스프레드시트 호환 엑셀 다운로드</h4>
+          <p class="text-emerald-600 mb-3">연간 대시보드와 1~12월 탭이 모두 포함된 원본 서식 파일로 내보냅니다.</p>
+          <button onclick="downloadExcelFile()" class="btn-pastel btn-primary btn-sm w-full">
+            엑셀(.xlsx) 파일 다운로드
+          </button>
+        </div>
+
+        <!-- 2. Google Spreadsheet Import -->
+        <div class="p-4 rounded-xl bg-blue-50/70 border border-blue-200">
+          <h4 class="font-bold text-blue-800 mb-1">📥 구글 스프레드시트 엑셀 파일 가져오기</h4>
+          <p class="text-blue-600 mb-3">기존에 작성하시던 가계부 엑셀(.xlsx) 파일을 업로드하여 DB로 즉시 로드합니다.</p>
+          <input type="file" id="excelFileInput" accept=".xlsx" class="hidden" onchange="handleExcelUpload(event)">
+          <button onclick="document.getElementById('excelFileInput').click()" class="btn-pastel btn-ghost btn-sm w-full border-blue-300 text-blue-700">
+            엑셀(.xlsx) 파일 선택 및 복원
+          </button>
+        </div>
+
+        <!-- 3. JSON Full Portable Backup -->
+        <div class="p-4 rounded-xl bg-purple-50/70 border border-purple-200">
+          <h4 class="font-bold text-purple-800 mb-1">🔐 무손실 JSON 전체 백업 & 복원</h4>
+          <p class="text-purple-600 mb-3">모든 설정, 카테고리, 거래내역을 단일 JSON으로 보관하거나 복원합니다.</p>
+          <div class="flex gap-2">
+            <button onclick="downloadJsonBackup()" class="btn-pastel btn-purple btn-sm flex-1">JSON 백업</button>
+            <input type="file" id="jsonFileInput" accept=".json" class="hidden" onchange="handleJsonRestore(event)">
+            <button onclick="document.getElementById('jsonFileInput').click()" class="btn-pastel btn-ghost btn-sm flex-1 border-purple-300 text-purple-700">JSON 복원</button>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="closeBackupModal()" class="btn-pastel btn-ghost w-full mt-4">닫기</button>
+    </div>
+  </div>
+
+  <!-- Mobile Bottom Navigation Bar (Visible only on mobile) -->
+  <nav class="bottom-nav md:hidden">
+    <div onclick="switchTab('today')" id="mobile-nav-today" class="bottom-nav-item active">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+      <span>빠른등록</span>
+    </div>
+    <div onclick="switchToCurrentMonth()" id="mobile-nav-month" class="bottom-nav-item">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+      <span>월간내역</span>
+    </div>
+    <div onclick="switchTab('annual')" id="mobile-nav-annual" class="bottom-nav-item">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+      <span>연간통계</span>
+    </div>
+    <div onclick="openQRModal()" class="bottom-nav-item">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+      <span>폰연결</span>
+    </div>
+  </nav>
+
+  <!-- Main Application Script -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

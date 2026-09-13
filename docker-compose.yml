@@ -1,0 +1,13 @@
+services:
+  household-account-book:
+    build: .
+    container_name: household_account_book
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./exports:/app/exports
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
