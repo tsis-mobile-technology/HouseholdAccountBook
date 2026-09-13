@@ -60,3 +60,21 @@ async def restore_json(file: UploadFile = File(...)):
         return {"status": "success", "message": "데이터가 성공적으로 복원되었습니다."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"복원 실패: {str(e)}")
+
+from pydantic import BaseModel
+
+class ResetRequest(BaseModel):
+    confirm_text: str
+
+@router.post("/reset")
+def reset_database(payload: ResetRequest):
+    if payload.confirm_text.strip() != "초기화":
+        raise HTTPException(status_code=400, detail="초기화를 진행하려면 '초기화'를 정확히 입력해야 합니다.")
+    from app.services.spreadsheet_service import reset_all_data
+    backup_name = reset_all_data(keep_default_templates=True)
+    return {
+        "status": "success",
+        "message": "데이터가 성공적으로 초기화되었습니다.",
+        "backup_file": backup_name
+    }
+

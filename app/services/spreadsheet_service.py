@@ -505,3 +505,77 @@ def restore_all_json(data: Dict[str, Any]) -> bool:
             """, (v.get("id"), v["transaction_date"], v["category_id"], v["title"], v["payment_method_id"], v["amount"], v.get("memo", ""), v.get("created_at"), v.get("updated_at")))
 
     return True
+
+def reset_all_data(keep_default_templates: bool = True) -> str:
+    """
+    Safely resets all recorded transactions and restores default settings.
+    A full safety backup snapshot is created automatically before deleting anything.
+    """
+    import shutil
+    from app.core.config import DB_PATH, BACKUP_DIR
+    from app.database.schema import (
+        DEFAULT_CATEGORIES,
+        DEFAULT_PAYMENTS,
+        DEFAULT_FIXED_INCOME_TEMPLATES,
+        DEFAULT_FIXED_EXPENSE_TEMPLATES,
+        DEFAULT_SAVINGS_TEMPLATES
+    )
+
+    # 1. Take a safety snapshot backup
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_file = BACKUP_DIR / f"account_book_before_reset_{timestamp}.db"
+    if DB_PATH.exists():
+        shutil.copy2(DB_PATH, backup_file)
+
+    # 2. Reset database tables
+    with get_db_cursor() as cur:
+        # Clear variable expenses
+        cur.execute("DELETE FROM variable_expenses")
+
+        # Clear fixed plans
+        cur.execute("DELETE FROM fixed_incomes")
+        cur.execute("DELETE FROM fixed_expenses")
+        cur.execute("DELETE FROM savings_investments")
+
+        # Clear and reseed categories
+        cur.execute("DELETE FROM categories")
+        cur.execute("DELETE FROM payment_methods")
+        try:
+            cur.execute("DELETE FROM sqlite_sequence WHERE name IN ('categories', 'payment_methods', 'variable_expenses')")
+        except Exception:
+            pass
+
+        for name, color, icon, order in DEFAULT_CATEGORIES:
+            cur.execute("""
+                INSERT INTO categories (name, color_hex, icon, sort_order)
+                VALUES (?, ?, ?, ?)
+            """, (name, color, icon, order))
+
+        for name, active in DEFAULT_PAYMENTS:
+            cur.execute("""
+                INSERT INTO payment_methods (name, is_active)
+                VALUES (?, ?)
+            """, (name, active))
+
+        # Seed default templates (year=0, month=0, is_template=1)
+        if keep_default_templates:
+            for item, day, desc, amt in DEFAULT_FIXED_INCOME_TEMPLATES:
+                cur.execute("""
+                    INSERT INTO fixed_incomes (year, month, item_name, expected_day, description, amount, is_template)
+                    VALUES (0, 0, ?, ?, ?, ?, 1)
+                """, (item, day, desc, amt))
+
+            for item, day, desc, amt in DEFAULT_FIXED_EXPENSE_TEMPLATES:
+                cur.execute("""
+                    INSERT INTO fixed_expenses (year, month, item_name, withdrawal_day, description, amount, is_template)
+                    VALUES (0, 0, ?, ?, ?, ?, 1)
+                """, (item, day, desc, amt))
+
+            for item, day, desc, amt in DEFAULT_SAVINGS_TEMPLATES:
+                cur.execute("""
+                    INSERT INTO savings_investments (year, month, item_name, payment_day, description, amount, is_template)
+                    VALUES (0, 0, ?, ?, ?, ?, 1)
+                """, (item, day, desc, amt))
+
+    return backup_file.name
+

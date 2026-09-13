@@ -768,3 +768,59 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
+
+// --- Data Reset Handlers ---
+function openResetConfirmModal() {
+  const modal = document.getElementById('modalResetConfirm');
+  const input = document.getElementById('inputResetConfirm');
+  const btn = document.getElementById('btnExecuteReset');
+  input.value = '';
+  btn.disabled = true;
+  btn.classList.add('opacity-50', 'cursor-not-allowed');
+  modal.classList.remove('hidden');
+  setTimeout(() => input.focus(), 100);
+}
+
+function closeResetConfirmModal() {
+  document.getElementById('modalResetConfirm').classList.add('hidden');
+}
+
+function checkResetConfirmInput(e) {
+  const val = e.target.value.trim();
+  const btn = document.getElementById('btnExecuteReset');
+  if (val === '초기화') {
+    btn.disabled = false;
+    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+  } else {
+    btn.disabled = true;
+    btn.classList.add('opacity-50', 'cursor-not-allowed');
+  }
+}
+
+async function executeDataReset() {
+  const btn = document.getElementById('btnExecuteReset');
+  btn.disabled = true;
+  btn.textContent = '초기화 진행 중...';
+
+  try {
+    const res = await fetch('/api/spreadsheet/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm_text: '초기화' })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.detail || '초기화 실패');
+
+    alert(`데이터가 깨끗하게 초기화되었습니다.\n(안전 백업 파일: ${result.backup_file})`);
+    closeResetConfirmModal();
+    closeBackupModal();
+    switchTab('today');
+    await refreshData();
+  } catch (err) {
+    alert('초기화 실패: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '초기화 실행';
+  }
+}
+

@@ -26,11 +26,13 @@ def test_meta_endpoints():
     assert data["qr_code"].startswith("data:image/png;base64,")
 
 def test_transaction_api_and_overview():
+    cat_id = client.get("/api/meta/categories").json()[0]["id"]
+    pay_id = client.get("/api/meta/payment-methods").json()[0]["id"]
     payload = {
         "transaction_date": "2026-09-13",
-        "category_id": 1,
+        "category_id": cat_id,
         "title": "API 테스트 점심",
-        "payment_method_id": 1,
+        "payment_method_id": pay_id,
         "amount": 9000,
         "memo": "김치찌개"
     }
@@ -66,3 +68,38 @@ def test_analytics_and_export_api():
     r_bak = client.get("/api/spreadsheet/backup-json")
     assert r_bak.status_code == 200
     assert "categories" in r_bak.json()
+
+def test_reset_api_with_confirmation():
+    # 1. Invalid confirmation fails
+    r_bad = client.post("/api/spreadsheet/reset", json={"confirm_text": "잘못된입력"})
+    assert r_bad.status_code == 400
+
+    cat_id = client.get("/api/meta/categories").json()[0]["id"]
+    pay_id = client.get("/api/meta/payment-methods").json()[0]["id"]
+
+    # 2. Add an item before reset
+    client.post("/api/transactions", json={
+        "transaction_date": "2026-09-13",
+        "category_id": cat_id,
+        "title": "초기화 전 테스트 항목",
+        "payment_method_id": pay_id,
+        "amount": 7777,
+        "memo": "삭제될 항목"
+    })
+    r_check = client.get("/api/transactions?year=2026&month=9")
+    assert any(i["title"] == "초기화 전 테스트 항목" for i in r_check.json())
+
+    # 3. Valid confirmation succeeds
+    r_ok = client.post("/api/spreadsheet/reset", json={"confirm_text": "초기화"})
+    assert r_ok.status_code == 200
+    assert r_ok.json()["status"] == "success"
+    assert "backup_file" in r_ok.json()
+
+    # 4. Verify transactions are cleared
+    r_after = client.get("/api/transactions?year=2026&month=9")
+    assert len(r_after.json()) == 0
+
+    # 5. Verify default categories are still intact
+    r_cats = client.get("/api/meta/categories")
+    assert len(r_cats.json()) >= 6
+

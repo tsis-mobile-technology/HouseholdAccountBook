@@ -6,6 +6,7 @@ from app.services.transaction_service import (
     update_variable_expense,
     delete_variable_expense,
 )
+from app.database.connection import get_connection
 from app.models.schemas import VariableExpenseCreate, VariableExpenseUpdate
 from app.services.analytics_service import get_monthly_summary, get_annual_dashboard
 from app.services.spreadsheet_service import export_to_excel_bytes, import_from_excel_file, export_all_json, restore_all_json
@@ -14,13 +15,24 @@ from app.services.spreadsheet_service import export_to_excel_bytes, import_from_
 def setup_db():
     init_database()
 
+def get_first_cat_and_pay():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM categories LIMIT 1")
+    cat_id = cur.fetchone()["id"]
+    cur.execute("SELECT id FROM payment_methods LIMIT 1")
+    pay_id = cur.fetchone()["id"]
+    conn.close()
+    return cat_id, pay_id
+
 def test_variable_expense_lifecycle():
+    cat_id, pay_id = get_first_cat_and_pay()
     # 1. Create
     data = VariableExpenseCreate(
         transaction_date="2026-09-13",
-        category_id=1, # 식비
+        category_id=cat_id,
         title="스타벅스 카페라떼",
-        payment_method_id=1, # 신용카드
+        payment_method_id=pay_id,
         amount=5500,
         memo="테스트 메모"
     )
@@ -45,12 +57,13 @@ def test_variable_expense_lifecycle():
     assert del_ok is True
 
 def test_monthly_summary_and_annual_dashboard():
+    cat_id, pay_id = get_first_cat_and_pay()
     # Insert a test transaction
     create_variable_expense(VariableExpenseCreate(
         transaction_date="2026-09-13",
-        category_id=1,
+        category_id=cat_id,
         title="마트 장보기",
-        payment_method_id=1,
+        payment_method_id=pay_id,
         amount=150000
     ))
 

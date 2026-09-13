@@ -540,9 +540,62 @@
             <button onclick="document.getElementById('jsonFileInput').click()" class="btn-pastel btn-ghost btn-sm flex-1 border-purple-300 text-purple-700">JSON 복원</button>
           </div>
         </div>
+
+        <!-- 4. Data Reset (Danger Zone) -->
+        <div class="p-4 rounded-xl bg-rose-50/80 border border-rose-200">
+          <div class="flex items-center justify-between mb-1">
+            <h4 class="font-bold text-rose-800 flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+              </svg>
+              데이터 전체 초기화 (Danger Zone)
+            </h4>
+          </div>
+          <p class="text-rose-600 mb-3">모든 일별 지출 내역을 삭제하고 기본 상태로 초기화합니다. (초기화 직전 자동 백업 스냅샷 저장)</p>
+          <button onclick="openResetConfirmModal()" class="btn-pastel bg-rose-100 text-rose-700 hover:bg-rose-200 border border-rose-300 btn-sm w-full font-bold">
+            ⚠️ 데이터 초기화 진행하기...
+          </button>
+        </div>
       </div>
 
       <button onclick="closeBackupModal()" class="btn-pastel btn-ghost w-full mt-4">닫기</button>
+    </div>
+  </div>
+
+  <!-- Modal 3: Data Reset Confirmation Modal -->
+  <div id="modalResetConfirm" class="modal-backdrop hidden" onclick="closeResetConfirmModal(event)">
+    <div class="modal-content p-6" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-base font-bold text-rose-800 flex items-center gap-2">
+          <span class="w-7 h-7 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 font-bold text-sm">⚠️</span>
+          데이터 전체 초기화 확인
+        </h3>
+        <button onclick="closeResetConfirmModal()" class="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 space-y-1.5 mb-4">
+        <p class="font-bold">⚠️ 경고: 초기화 시 아래 사항이 적용됩니다.</p>
+        <ul class="list-disc pl-4 space-y-0.5 text-rose-700">
+          <li>등록된 모든 변동 지출 내역이 완전히 삭제됩니다.</li>
+          <li>월별 고정 수입/지출/저축이 기본 템플릿으로 초기화됩니다.</li>
+          <li>안전을 위해 <strong>현재 DB 스냅샷이 backups/ 폴더에 자동 백업</strong>됩니다.</li>
+        </ul>
+      </div>
+
+      <p class="text-xs text-gray-600 font-medium mb-2">
+        실수로 인한 삭제를 방지하기 위해, 아래 입력창에 <strong class="text-rose-600 underline font-bold">초기화</strong> 라고 정확히 입력하세요:
+      </p>
+
+      <input type="text" id="inputResetConfirm" placeholder="'초기화'를 입력하세요" class="glass-input text-sm mb-4 border-rose-300 text-center font-bold" oninput="checkResetConfirmInput(event)">
+
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="closeResetConfirmModal()" class="btn-pastel btn-ghost flex-1 py-2.5">
+          취소
+        </button>
+        <button type="button" id="btnExecuteReset" onclick="executeDataReset()" class="btn-pastel bg-rose-500 text-white hover:bg-rose-600 flex-1 py-2.5 font-bold opacity-50 cursor-not-allowed" disabled>
+          초기화 실행
+        </button>
+      </div>
     </div>
   </div>
 
