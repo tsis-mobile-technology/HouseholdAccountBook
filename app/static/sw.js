@@ -1,4 +1,4 @@
-const CACHE_NAME = 'household-book-v20260919-05';
+const CACHE_NAME = 'household-book-v20260919-06';
 const ASSETS_TO_CACHE = [
   '/',
   '/static/css/style.css',

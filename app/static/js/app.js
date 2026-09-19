@@ -659,6 +659,38 @@ function toggleVariableExpensesEdit() {
   }
 }
 
+const KOREAN_WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function getKoreanDayOfWeek(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr + 'T00:00:00');
+    return KOREAN_WEEKDAYS[d.getDay()] || '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function groupTransactionsByDate(items) {
+  if (!items || items.length === 0) return [];
+  const groups = [];
+  let currentGroup = null;
+
+  items.forEach(item => {
+    const date = item.transaction_date;
+    if (!currentGroup || currentGroup.date !== date) {
+      currentGroup = {
+        date: date,
+        items: []
+      };
+      groups.push(currentGroup);
+    }
+    currentGroup.items.push(item);
+  });
+
+  return groups;
+}
+
 async function loadMonthVariableExpenses(monthOverride) {
   const y = STATE.currentYear;
   const m = monthOverride || STATE.currentMonth;
@@ -672,33 +704,59 @@ async function loadMonthVariableExpenses(monthOverride) {
     const items = await res.json();
     STATE.cachedVarExpenses = items || [];
 
-    // 1. Render Mobile Timeline Cards (3-column, 2-row layout)
+    // 1. Render Mobile Timeline Cards (Grouped by Date)
     renderMonthVariableExpensesMobile(items);
 
-    // 2. Render Desktop Spreadsheet Table (with '09/18' date format)
+    // 2. Render Desktop Spreadsheet Table (Grouped by Date with Merged Date Cells)
     const tbody = document.getElementById('monthVarExpenseBody');
     if (tbody) {
       if (!items || items.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-slate-400 font-medium">등록된 변동 지출 내역이 없습니다.</td></tr>';
       } else {
-        tbody.innerHTML = items.map(item => `
-          <tr>
-            <td class="text-center font-mono font-bold text-slate-700">${formatShortSlashDate(item.transaction_date)}</td>
-            <td class="text-center">
-              <span class="badge-category" style="background-color: ${item.category_color || '#A8E6CF'}25; color: #0F172A;">${escapeHtml(item.category_name || '기타')}</span>
-            </td>
-            <td class="font-bold text-slate-900">${escapeHtml(item.title)}</td>
-            <td class="text-center"><span class="badge-pay">${escapeHtml(item.payment_method_name || '현금')}</span></td>
-            <td class="text-right font-black text-rose-600">${formatKRW(item.amount)}원</td>
-            <td class="text-slate-500 text-xs">${escapeHtml(item.memo || '')}</td>
-            <td class="text-center d-edit-actions">
-              <button onclick="openEditTransactionModal(${item.id})" class="btn-tx-edit">수정</button>
-            </td>
-            <td class="text-center d-edit-actions">
-              <button onclick="deleteTransaction(${item.id})" class="btn-tx-del">삭제</button>
-            </td>
-          </tr>
-        `).join('');
+        const groups = groupTransactionsByDate(items);
+        let tableRowsHtml = '';
+
+        groups.forEach(group => {
+          const dow = getKoreanDayOfWeek(group.date);
+          const dowText = dow ? ` (${dow})` : '';
+          const countBadge = group.items.length > 1 ? `<span class="mt-0.5 text-[10px] font-extrabold text-slate-500 bg-slate-200/80 px-1.5 py-0.2 rounded-full">${group.items.length}건</span>` : '';
+
+          group.items.forEach((item, idx) => {
+            const isFirst = idx === 0;
+            const trClass = isFirst ? 'date-group-first hover:bg-purple-50/40' : 'hover:bg-purple-50/40';
+
+            tableRowsHtml += `<tr class="${trClass}" data-id="${item.id}">`;
+            if (isFirst) {
+              tableRowsHtml += `
+                <td rowspan="${group.items.length}" class="date-group-cell">
+                  <div class="flex flex-col items-center justify-center">
+                    <span class="font-black text-slate-800 text-xs font-mono tracking-tight">${formatShortSlashDate(group.date)}</span>
+                    <span class="text-[10px] text-slate-500 font-bold">${dowText}</span>
+                    ${countBadge}
+                  </div>
+                </td>
+              `;
+            }
+
+            tableRowsHtml += `
+              <td class="text-center">
+                <span class="badge-category" style="background-color: ${item.category_color || '#A8E6CF'}25; color: #0F172A;">${escapeHtml(item.category_name || '기타')}</span>
+              </td>
+              <td class="font-bold text-slate-900">${escapeHtml(item.title)}</td>
+              <td class="text-center"><span class="badge-pay">${escapeHtml(item.payment_method_name || '현금')}</span></td>
+              <td class="text-right font-black text-rose-600">-${formatKRW(item.amount)}원</td>
+              <td class="text-slate-500 text-xs">${escapeHtml(item.memo || '')}</td>
+              <td class="text-center d-edit-actions">
+                <button onclick="openEditTransactionModal(${item.id})" class="btn-tx-edit">수정</button>
+              </td>
+              <td class="text-center d-edit-actions">
+                <button onclick="deleteTransaction(${item.id})" class="btn-tx-del">삭제</button>
+              </td>
+            </tr>`;
+          });
+        });
+
+        tbody.innerHTML = tableRowsHtml;
       }
     }
   } catch (err) {
@@ -706,7 +764,7 @@ async function loadMonthVariableExpenses(monthOverride) {
   }
 }
 
-// Render Mobile-First Variable Expenses in 3-Column, 2-Row layout:
+// Render Mobile-First Variable Expenses grouped by date:
 //       분류      지출내용    수정
 //   일자
 //       결제수단   금액       삭제
@@ -723,49 +781,67 @@ function renderMonthVariableExpensesMobile(items) {
     return;
   }
 
-  const html = items.map(item => `
-    <div class="mobile-tx-card-grid" data-id="${item.id}">
-      <!-- Col 1: 일자 (Spans 2 rows, Vertically centered) -->
-      <div class="mobile-tx-col-date">
-        <span>${formatShortSlashDate(item.transaction_date)}</span>
-      </div>
+  const groups = groupTransactionsByDate(items);
 
-      <!-- Col 2, Row 1: 분류 + 지출내용 -->
-      <div class="mobile-tx-col-top">
-        <span class="badge-category flex-shrink-0" style="background-color: ${item.category_color || '#A8E6CF'}30; color: #0F172A;">
-          ${escapeHtml(item.category_name || '기타')}
-        </span>
-        <span class="font-bold text-slate-900 truncate text-sm">
-          ${escapeHtml(item.title)}
-        </span>
-      </div>
+  const html = groups.map(group => {
+    const dow = getKoreanDayOfWeek(group.date);
+    const countBadge = group.items.length > 1 ? `<span class="date-spine-count">${group.items.length}건</span>` : '';
 
-      <!-- Col 3, Row 1: 수정 버튼 -->
-      <div class="mobile-tx-col-edit d-edit-actions">
-        <button type="button" onclick="openEditTransactionModal(${item.id})" class="btn-tx-edit">
-          수정
-        </button>
-      </div>
+    const itemsHtml = group.items.map(item => `
+      <div class="mobile-date-item-row" data-id="${item.id}">
+        <!-- Row 1: 분류 + 지출내용 + 수정 버튼 -->
+        <div class="item-row-top">
+          <div class="flex items-center gap-1.5 min-w-0 flex-1">
+            <span class="badge-category flex-shrink-0" style="background-color: ${item.category_color || '#A8E6CF'}30; color: #0F172A;">
+              ${escapeHtml(item.category_name || '기타')}
+            </span>
+            <span class="font-bold text-slate-900 truncate text-xs sm:text-sm">
+              ${escapeHtml(item.title)}
+            </span>
+          </div>
+          <div class="d-edit-actions flex-shrink-0">
+            <button type="button" onclick="openEditTransactionModal(${item.id})" class="btn-tx-edit">
+              수정
+            </button>
+          </div>
+        </div>
 
-      <!-- Col 2, Row 2: 결제수단 + 금액 -->
-      <div class="mobile-tx-col-bottom">
-        <span class="badge-pay text-[11px] py-0.5 px-1.5 flex-shrink-0">
-          ${escapeHtml(item.payment_method_name || '현금')}
-        </span>
-        <span class="font-black text-rose-600 text-sm whitespace-nowrap">
-          -${formatKRW(item.amount)}원
-        </span>
-        ${item.memo ? `<span class="text-[11px] text-slate-400 truncate max-w-[80px]">(${escapeHtml(item.memo)})</span>` : ''}
+        <!-- Row 2: 결제수단 + 금액 + 메모 + 삭제 버튼 -->
+        <div class="item-row-bottom">
+          <div class="flex items-center gap-1.5 min-w-0 flex-1">
+            <span class="badge-pay text-[11px] py-0.5 px-1.5 flex-shrink-0">
+              ${escapeHtml(item.payment_method_name || '현금')}
+            </span>
+            <span class="font-black text-rose-600 text-xs sm:text-sm whitespace-nowrap">
+              -${formatKRW(item.amount)}원
+            </span>
+            ${item.memo ? `<span class="text-[11px] text-slate-400 truncate max-w-[100px] sm:max-w-[140px]">(${escapeHtml(item.memo)})</span>` : ''}
+          </div>
+          <div class="d-edit-actions flex-shrink-0">
+            <button type="button" onclick="deleteTransaction(${item.id})" class="btn-tx-del">
+              삭제
+            </button>
+          </div>
+        </div>
       </div>
+    `).join('');
 
-      <!-- Col 3, Row 2: 삭제 버튼 -->
-      <div class="mobile-tx-col-del d-edit-actions">
-        <button type="button" onclick="deleteTransaction(${item.id})" class="btn-tx-del">
-          삭제
-        </button>
+    return `
+      <div class="mobile-date-group-card" data-date="${group.date}">
+        <!-- Col 1: 일자 Spine (Spans all transactions on this date) -->
+        <div class="mobile-date-spine">
+          <span class="date-spine-slash">${formatShortSlashDate(group.date)}</span>
+          <span class="date-spine-dow">${dow ? `(${dow})` : ''}</span>
+          ${countBadge}
+        </div>
+
+        <!-- Col 2 & 3: Stacked Transactions on this date -->
+        <div class="mobile-date-items">
+          ${itemsHtml}
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   container.innerHTML = html;
 }
