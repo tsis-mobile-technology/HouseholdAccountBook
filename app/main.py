@@ -8,8 +8,9 @@ from pathlib import Path
 from app.core.config import STATIC_DIR, HOST, PORT
 from app.core.network import print_terminal_qr
 from app.core.backup import perform_daily_backup
+from app.core.scheduler import start_scheduler, stop_scheduler
 from app.database.schema import init_database
-from app.routers import transactions, fixed_plans, analytics, spreadsheet, meta
+from app.routers import transactions, fixed_plans, analytics, spreadsheet, meta, gdrive
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -17,9 +18,13 @@ async def lifespan(app: FastAPI):
     init_database()
     # 2. Perform rolling backup if needed
     perform_daily_backup()
-    # 3. Print QR code to terminal for instant mobile access
+    # 3. Start background backup scheduler
+    start_scheduler()
+    # 4. Print QR code to terminal for instant mobile access
     print_terminal_qr()
     yield
+    # Graceful shutdown
+    stop_scheduler()
 
 app = FastAPI(
     title="HouseholdAccountBook",
@@ -43,6 +48,7 @@ app.include_router(fixed_plans.router)
 app.include_router(analytics.router)
 app.include_router(spreadsheet.router)
 app.include_router(meta.router)
+app.include_router(gdrive.router)
 
 # Mount static assets
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

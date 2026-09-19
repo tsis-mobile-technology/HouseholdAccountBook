@@ -1,5 +1,5 @@
 /**
- * 🌸 HouseholdAccountBook - Modern Client Application
+ * 🌸 HouseholdAccountBook - Mobile-First Client Application
  */
 
 const STATE = {
@@ -10,14 +10,20 @@ const STATE = {
   paymentMethods: [],
   networkInfo: null,
   trendChart: null,
-  donutChart: null
+  donutChart: null,
+  isEditingFixed: { income: false, expense: false, savings: false },
+  isEditingVarExpense: false,
+  cachedPlans: { incomes: [], expenses: [], savings: [] },
+  cachedVarExpenses: []
 };
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', async () => {
   // PWA Service Worker
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/static/sw.js').catch(console.warn);
+    navigator.serviceWorker.register('/static/sw.js').then(reg => {
+      reg.update().catch(() => {});
+    }).catch(console.warn);
   }
 
   // Set default date to today YYYY-MM-DD
@@ -33,6 +39,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     dateTitle.textContent = `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
   }
 
+  // Update central month stepper
+  updateHeaderMonthLabel();
+
   // Generate 1월 ~ 12월 Navigation buttons
   renderMonthTabs();
 
@@ -43,7 +52,35 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadTodayOverview();
 
   // Pre-load network info for QR
-  loadNetworkInfo();
+  await loadNetworkInfo();
+
+  // Handle URL hash routing immediately
+  if (window.location.hash.startsWith('#month')) {
+    switchToCurrentMonth();
+    if (window.location.hash.includes('edit')) {
+      STATE.isEditingVarExpense = true;
+      const btn = document.getElementById('btnEditVarExpense');
+      if (btn) {
+        btn.textContent = '💾 수정 완료';
+        btn.classList.add('is-editing');
+      }
+      const mobileList = document.getElementById('monthVarExpenseMobileList');
+      if (mobileList) {
+        mobileList.classList.remove('d-view-mode');
+        mobileList.classList.add('d-edit-mode');
+      }
+      const desktopTable = document.getElementById('monthVarExpenseTableContainer');
+      if (desktopTable) {
+        desktopTable.classList.remove('d-view-mode');
+        desktopTable.classList.add('d-edit-mode');
+      }
+    }
+  } else if (window.location.hash === '#settings') {
+    openSettingsModal();
+  } else if (window.location.hash === '#edit-tx') {
+    switchToCurrentMonth();
+    document.getElementById('modalEditTransaction')?.classList.remove('hidden');
+  }
 });
 
 function getTodayString() {
@@ -56,6 +93,42 @@ function getTodayString() {
 
 function formatKRW(val) {
   return Number(val || 0).toLocaleString('ko-KR');
+}
+
+// --- Month Stepper Logic ---
+function updateHeaderMonthLabel() {
+  const lbl = document.getElementById('headerMonthLabel');
+  if (lbl) {
+    lbl.textContent = `${STATE.currentYear}년 ${STATE.currentMonth}월`;
+  }
+}
+
+function prevMonth() {
+  let m = STATE.currentMonth - 1;
+  if (m < 1) {
+    m = 12;
+    STATE.currentYear -= 1;
+    const ys = document.getElementById('yearSelector');
+    if (ys) ys.value = STATE.currentYear;
+  }
+  STATE.currentMonth = m;
+  updateHeaderMonthLabel();
+  renderMonthTabs();
+  switchTab(m);
+}
+
+function nextMonth() {
+  let m = STATE.currentMonth + 1;
+  if (m > 12) {
+    m = 1;
+    STATE.currentYear += 1;
+    const ys = document.getElementById('yearSelector');
+    if (ys) ys.value = STATE.currentYear;
+  }
+  STATE.currentMonth = m;
+  updateHeaderMonthLabel();
+  renderMonthTabs();
+  switchTab(m);
 }
 
 // --- Metadata Loading ---
@@ -94,7 +167,7 @@ function renderMonthTabs() {
   for (let m = 1; m <= 12; m++) {
     const btn = document.createElement('button');
     btn.id = `tab-btn-month-${m}`;
-    btn.className = `category-chip text-xs px-2.5 py-1 ${m === STATE.currentMonth ? 'border-purple-300' : ''}`;
+    btn.className = `category-chip text-xs px-3 py-1.5 font-bold ${m === STATE.currentMonth ? 'border-purple-500 bg-white text-purple-900 shadow-sm' : ''}`;
     btn.textContent = `${m}월`;
     btn.onclick = () => switchTab(m);
     container.appendChild(btn);
@@ -111,8 +184,7 @@ function renderCategoryChips() {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = `category-chip ${idx === 0 ? 'active' : ''}`;
-    chip.style.backgroundColor = cat.color_hex + '33'; // 20% opacity
-    chip.innerHTML = `<span>●</span> <span>${cat.name}</span>`;
+    chip.innerHTML = `<span style="color: ${cat.color_hex}; font-size: 15px;">●</span> <span>${cat.name}</span>`;
     chip.onclick = () => {
       document.querySelectorAll('#categoryChipsList .category-chip').forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
@@ -193,6 +265,7 @@ function switchTab(tab) {
     if (b) b.classList.add('active');
     const mb = document.getElementById('mobile-nav-today');
     if (mb) mb.classList.add('active');
+    updateHeaderMonthLabel();
     loadTodayOverview();
   } else if (tab === 'annual') {
     viewAnnual.classList.remove('hidden');
@@ -208,6 +281,7 @@ function switchTab(tab) {
     if (b) b.classList.add('active');
     const mb = document.getElementById('mobile-nav-month');
     if (mb) mb.classList.add('active');
+    updateHeaderMonthLabel();
     loadMonthDetail(tab);
   }
 }
@@ -218,6 +292,7 @@ function switchToCurrentMonth() {
 
 function onYearChange() {
   STATE.currentYear = Number(document.getElementById('yearSelector').value);
+  updateHeaderMonthLabel();
   if (STATE.currentTab === 'today') {
     loadTodayOverview();
   } else if (STATE.currentTab === 'annual') {
@@ -267,26 +342,26 @@ function renderTodayTransactions(items) {
   if (!container) return;
 
   if (!items || items.length === 0) {
-    container.innerHTML = '<div class="p-6 text-center text-gray-400 text-xs">오늘 등록된 지출 내역이 없습니다. 위 양식에서 추가해보세요! ☕</div>';
+    container.innerHTML = '<div class="glass-card p-6 text-center text-slate-500 font-medium text-sm">오늘 등록된 지출 내역이 없습니다. 위 양식에서 3초 만에 추가해보세요! ☕</div>';
     return;
   }
 
   container.innerHTML = items.map(item => `
-    <div class="glass-card p-3 flex items-center justify-between hover:bg-white/80 transition">
-      <div class="flex items-center gap-3">
-        <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${item.category_color}"></span>
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-bold text-gray-800">${escapeHtml(item.title)}</span>
-            <span class="badge-category" style="background-color: ${item.category_color}22; color: #1F2937">${item.category_name}</span>
+    <div class="glass-card p-3.5 flex items-center justify-between hover:bg-white/95 transition">
+      <div class="flex items-center gap-3 min-w-0">
+        <span class="w-3.5 h-3.5 rounded-full flex-shrink-0 shadow-xs" style="background-color: ${item.category_color}"></span>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-sm sm:text-base font-extrabold text-slate-900">${escapeHtml(item.title)}</span>
+            <span class="badge-category" style="background-color: ${item.category_color}25; color: #0F172A">${item.category_name}</span>
             <span class="badge-pay">${item.payment_method_name}</span>
           </div>
-          ${item.memo ? `<span class="text-[11px] text-gray-400">${escapeHtml(item.memo)}</span>` : ''}
+          ${item.memo ? `<span class="text-xs text-slate-500 block mt-0.5 truncate">${escapeHtml(item.memo)}</span>` : ''}
         </div>
       </div>
-      <div class="flex items-center gap-3">
-        <span class="text-sm font-bold text-rose-600">-${formatKRW(item.amount)}원</span>
-        <button onclick="deleteTransaction(${item.id})" class="text-gray-400 hover:text-rose-500 p-1 rounded" title="삭제">
+      <div class="flex items-center gap-3 ml-3 flex-shrink-0">
+        <span class="text-base sm:text-lg font-black text-rose-600">-${formatKRW(item.amount)}원</span>
+        <button onclick="deleteTransaction(${item.id})" class="mobile-tx-del-btn" title="삭제">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
           </svg>
@@ -325,7 +400,7 @@ async function handleQuickSubmit(e) {
     document.getElementById('inputTitle').value = '';
     document.getElementById('inputMemo').value = '';
 
-    // Show temporary badge or vibration
+    // Vibrate haptic if supported
     if (navigator.vibrate) navigator.vibrate(50);
     await loadTodayOverview();
   } catch (err) {
@@ -361,7 +436,7 @@ async function loadMonthDetail(m) {
     const summary = await summaryRes.json();
     const plans = await plansRes.json();
 
-    // Summary Cards
+    // Summary Cards (High Contrast & Clear Typography)
     document.getElementById('tabMonthIncome').textContent = `${formatKRW(summary.total_income)}원`;
     document.getElementById('tabMonthFixed').textContent = `${formatKRW(summary.fixed_expense)}원`;
     document.getElementById('tabMonthVar').textContent = `${formatKRW(summary.variable_expense)}원`;
@@ -369,98 +444,224 @@ async function loadMonthDetail(m) {
     document.getElementById('tabMonthSavings').textContent = `${formatKRW(summary.savings_investment)}원`;
     document.getElementById('tabMonthBalance').textContent = `${formatKRW(summary.balance)}원`;
 
-    // Render Fixed Plans Tables
-    renderFixedTable('fixedIncomeBody', plans.incomes);
-    renderFixedTable('fixedExpenseBody', plans.expenses);
-    renderFixedTable('savingsBody', plans.savings);
+    // Cache plans for seamless edit/view mode switching
+    STATE.cachedPlans = plans;
 
-    // Load Variable Expenses
-    loadMonthVariableExpenses();
+    // Render Fixed Plans Tables (Respecting current edit states)
+    renderFixedTable('fixedIncomeBody', plans.incomes, STATE.isEditingFixed.income);
+    renderFixedTable('fixedExpenseBody', plans.expenses, STATE.isEditingFixed.expense);
+    renderFixedTable('savingsBody', plans.savings, STATE.isEditingFixed.savings);
+
+    // Load Variable Expenses (Both Mobile Cards & Desktop Table)
+    await loadMonthVariableExpenses(m);
   } catch (err) {
     console.error('Failed to load month detail', err);
   }
 }
 
-function renderFixedTable(tbodyId, items) {
+function renderFixedTable(tbodyId, items, isEditing = false) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
-  tbody.innerHTML = items.map((item, idx) => `
-    <tr class="hover:bg-white/50">
-      <td class="py-1.5"><input type="text" value="${escapeHtml(item.item_name)}" class="glass-input text-xs py-1 px-1.5 item-name" style="width: 90px"></td>
-      <td class="py-1.5"><input type="text" value="${escapeHtml(item.day || '')}" class="glass-input text-xs py-1 px-1.5 item-day" style="width: 50px"></td>
-      <td class="py-1.5"><input type="text" value="${escapeHtml(item.description || '')}" class="glass-input text-xs py-1 px-1.5 item-desc" style="width: 100px"></td>
-      <td class="py-1.5 text-right"><input type="number" value="${item.amount}" class="glass-input text-xs py-1 px-1.5 text-right item-amt font-semibold" style="width: 80px"></td>
-      <td class="py-1.5 text-center"><button onclick="this.closest('tr').remove()" class="text-gray-400 hover:text-rose-500">✕</button></td>
-    </tr>
-  `).join('');
+
+  if (!items || items.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-slate-400 font-medium">${isEditing ? '등록된 항목이 없습니다. "+ 항목 추가"를 눌러 추가하세요.' : '등록된 항목이 없습니다.'}</td></tr>`;
+    return;
+  }
+
+  if (!isEditing) {
+    // 1) View Mode: Clean, readable formatted text (No input boxes)
+    tbody.innerHTML = items.map(item => `
+      <tr class="hover:bg-white/70 border-b border-gray-100">
+        <td class="fixed-text-cell font-bold text-slate-900">${escapeHtml(item.item_name)}</td>
+        <td class="fixed-text-cell text-center font-bold text-slate-600">${escapeHtml(item.day || '-')}</td>
+        <td class="fixed-text-cell text-slate-700">${escapeHtml(item.description || '-')}</td>
+        <td class="fixed-text-cell text-right fixed-text-amt">${formatKRW(item.amount)}원</td>
+        <td class="fixed-text-cell fixed-del-col hidden"></td>
+      </tr>
+    `).join('');
+  } else {
+    // 2) Edit Mode: Input boxes and active delete buttons
+    tbody.innerHTML = items.map(item => `
+      <tr class="hover:bg-white/70 border-b border-gray-100">
+        <td class="py-1.5"><input type="text" value="${escapeHtml(item.item_name)}" class="glass-input text-xs py-1.5 px-2 rounded-lg font-bold item-name" style="width: 100px"></td>
+        <td class="py-1.5"><input type="text" value="${escapeHtml(item.day || '')}" class="glass-input text-xs py-1.5 px-2 rounded-lg text-center font-bold item-day" style="width: 50px"></td>
+        <td class="py-1.5"><input type="text" value="${escapeHtml(item.description || '')}" class="glass-input text-xs py-1.5 px-2 rounded-lg item-desc" style="width: 110px"></td>
+        <td class="py-1.5 text-right"><input type="number" value="${item.amount}" class="glass-input text-xs py-1.5 px-2 rounded-lg text-right item-amt font-extrabold text-slate-800" style="width: 90px"></td>
+        <td class="py-1.5 text-center fixed-del-col"><button onclick="this.closest('tr').remove()" class="text-slate-400 hover:text-rose-600 font-bold p-1">✕</button></td>
+      </tr>
+    `).join('');
+  }
+}
+
+async function toggleFixedSectionEdit(type) {
+  const isCurrentlyEditing = STATE.isEditingFixed[type];
+  const btn = document.getElementById(`btnEditFixed-${type}`);
+  const btnAdd = document.getElementById(`btnAddFixed-${type}`);
+  const tbodyId = type === 'income' ? 'fixedIncomeBody' : (type === 'expense' ? 'fixedExpenseBody' : 'savingsBody');
+  const tableId = type === 'income' ? 'fixedIncomeTable' : (type === 'expense' ? 'fixedExpenseTable' : 'savingsTable');
+
+  if (!isCurrentlyEditing) {
+    // Switch to Edit Mode
+    STATE.isEditingFixed[type] = true;
+    if (btn) {
+      btn.textContent = '💾 수정 완료';
+      btn.classList.add('is-editing');
+    }
+    if (btnAdd) btnAdd.classList.remove('hidden');
+
+    const table = document.getElementById(tableId);
+    if (table) {
+      table.querySelectorAll('.fixed-del-col').forEach(el => el.classList.remove('hidden'));
+    }
+
+    const items = STATE.cachedPlans ? (type === 'income' ? STATE.cachedPlans.incomes : (type === 'expense' ? STATE.cachedPlans.expenses : STATE.cachedPlans.savings)) : [];
+    renderFixedTable(tbodyId, items, true);
+  } else {
+    // Finish editing: Extract rows and auto-save
+    await saveCurrentMonthFixedPlans(false, false);
+    STATE.isEditingFixed[type] = false;
+    if (btn) {
+      btn.textContent = '✏️ 내용 수정';
+      btn.classList.remove('is-editing');
+    }
+    if (btnAdd) btnAdd.classList.add('hidden');
+
+    const table = document.getElementById(tableId);
+    if (table) {
+      table.querySelectorAll('.fixed-del-col').forEach(el => el.classList.add('hidden'));
+    }
+
+    // Refresh month data & KPI summaries
+    await loadMonthDetail(STATE.currentMonth);
+  }
 }
 
 function addFixedRow(type) {
+  if (!STATE.isEditingFixed[type]) {
+    toggleFixedSectionEdit(type);
+  }
   const tbodyId = type === 'income' ? 'fixedIncomeBody' : (type === 'expense' ? 'fixedExpenseBody' : 'savingsBody');
   const tbody = document.getElementById(tbodyId);
   const tr = document.createElement('tr');
-  tr.className = 'hover:bg-white/50';
+  tr.className = 'hover:bg-white/70 border-b border-gray-100';
   tr.innerHTML = `
-    <td class="py-1.5"><input type="text" placeholder="항목명" class="glass-input text-xs py-1 px-1.5 item-name" style="width: 90px"></td>
-    <td class="py-1.5"><input type="text" placeholder="일" class="glass-input text-xs py-1 px-1.5 item-day" style="width: 50px"></td>
-    <td class="py-1.5"><input type="text" placeholder="내용" class="glass-input text-xs py-1 px-1.5 item-desc" style="width: 100px"></td>
-    <td class="py-1.5 text-right"><input type="number" value="0" class="glass-input text-xs py-1 px-1.5 text-right item-amt font-semibold" style="width: 80px"></td>
-    <td class="py-1.5 text-center"><button onclick="this.closest('tr').remove()" class="text-gray-400 hover:text-rose-500">✕</button></td>
+    <td class="py-1.5"><input type="text" placeholder="항목명" class="glass-input text-xs py-1.5 px-2 rounded-lg font-bold item-name" style="width: 100px"></td>
+    <td class="py-1.5"><input type="text" placeholder="일자" class="glass-input text-xs py-1.5 px-2 rounded-lg text-center font-bold item-day" style="width: 50px"></td>
+    <td class="py-1.5"><input type="text" placeholder="설명" class="glass-input text-xs py-1.5 px-2 rounded-lg item-desc" style="width: 110px"></td>
+    <td class="py-1.5 text-right"><input type="number" value="0" class="glass-input text-xs py-1.5 px-2 rounded-lg text-right item-amt font-extrabold text-slate-800" style="width: 90px"></td>
+    <td class="py-1.5 text-center fixed-del-col"><button onclick="this.closest('tr').remove()" class="text-slate-400 hover:text-rose-600 font-bold p-1">✕</button></td>
   `;
   tbody.appendChild(tr);
+  const firstInput = tr.querySelector('input');
+  if (firstInput) firstInput.focus();
 }
 
-async function saveCurrentMonthFixedPlans(asTemplate) {
+async function saveCurrentMonthFixedPlans(isTemplate = false, showAlert = true) {
   const y = STATE.currentYear;
   const m = STATE.currentMonth;
 
-  function parseTable(tbodyId) {
-    const rows = document.querySelectorAll(`#${tbodyId} tr`);
-    const list = [];
-    rows.forEach(r => {
-      const name = r.querySelector('.item-name')?.value.trim();
-      const day = r.querySelector('.item-day')?.value.trim();
-      const desc = r.querySelector('.item-desc')?.value.trim();
-      const amt = Number(r.querySelector('.item-amt')?.value) || 0;
-      if (name) {
-        list.push({
-          year: y,
-          month: m,
-          item_name: name,
-          day: day,
-          description: desc,
-          amount: amt
-        });
-      }
-    });
-    return list;
+  function extractRows(tbodyId, type) {
+    // If currently in edit mode, extract from input boxes
+    if (STATE.isEditingFixed[type]) {
+      const rows = document.querySelectorAll(`#${tbodyId} tr`);
+      return Array.from(rows).map(tr => {
+        const name = tr.querySelector('.item-name')?.value.trim() || '';
+        const day = tr.querySelector('.item-day')?.value.trim() || '';
+        const desc = tr.querySelector('.item-desc')?.value.trim() || '';
+        const amt = Number(tr.querySelector('.item-amt')?.value) || 0;
+        return { item_name: name, day, description: desc, amount: amt };
+      }).filter(it => it.item_name !== '');
+    }
+    // If currently in view mode, retain cached items
+    if (STATE.cachedPlans) {
+      if (type === 'income') return STATE.cachedPlans.incomes || [];
+      if (type === 'expense') return STATE.cachedPlans.expenses || [];
+      if (type === 'savings') return STATE.cachedPlans.savings || [];
+    }
+    return [];
   }
 
   const payload = {
     year: y,
     month: m,
-    incomes: parseTable('fixedIncomeBody'),
-    expenses: parseTable('fixedExpenseBody'),
-    savings: parseTable('savingsBody')
+    incomes: extractRows('fixedIncomeBody', 'income'),
+    expenses: extractRows('fixedExpenseBody', 'expense'),
+    savings: extractRows('savingsBody', 'savings'),
+    is_template: isTemplate
   };
 
   try {
-    const res = await fetch(`/api/fixed-plans/${y}/${m}?set_as_template=${asTemplate}`, {
-      method: 'POST',
+    const res = await fetch(`/api/fixed-plans/${y}/${m}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    if (!res.ok) throw new Error('저장 실패');
-    alert(asTemplate ? '기본 템플릿으로 저장되었습니다!' : `${m}월 고정 계획이 저장되었습니다!`);
-    loadMonthDetail(m);
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || '저장 실패');
+    }
+    if (showAlert) {
+      alert(isTemplate ? '기본 템플릿으로 저장되었습니다. 신규 월 생성 시 이 값이 기본 반영됩니다.' : '고정 계획이 저장되었습니다.');
+      loadMonthDetail(m);
+    }
   } catch (err) {
-    alert('저장 실패: ' + err.message);
+    if (showAlert) {
+      alert('저장 실패: ' + err.message);
+    } else {
+      console.error('고정 계획 자동 저장 실패:', err);
+    }
   }
 }
 
-async function loadMonthVariableExpenses() {
+// Date formatting helper: 2026-09-18 -> 09/18
+function formatShortSlashDate(dateStr) {
+  if (!dateStr) return '';
+  const parts = String(dateStr).split('-');
+  if (parts.length >= 3) {
+    return `${parts[1]}/${parts[2]}`;
+  }
+  return dateStr.slice(5).replace('-', '/');
+}
+
+// Section D Edit Mode Toggle
+function toggleVariableExpensesEdit() {
+  STATE.isEditingVarExpense = !STATE.isEditingVarExpense;
+  const btn = document.getElementById('btnEditVarExpense');
+  const mobileList = document.getElementById('monthVarExpenseMobileList');
+  const desktopContainer = document.getElementById('monthVarExpenseTableContainer');
+
+  if (STATE.isEditingVarExpense) {
+    if (btn) {
+      btn.textContent = '💾 수정 완료';
+      btn.classList.add('is-editing');
+    }
+    if (mobileList) {
+      mobileList.classList.remove('d-view-mode');
+      mobileList.classList.add('d-edit-mode');
+    }
+    if (desktopContainer) {
+      desktopContainer.classList.remove('d-view-mode');
+      desktopContainer.classList.add('d-edit-mode');
+    }
+  } else {
+    if (btn) {
+      btn.textContent = '✏️ 내용 수정';
+      btn.classList.remove('is-editing');
+    }
+    if (mobileList) {
+      mobileList.classList.remove('d-edit-mode');
+      mobileList.classList.add('d-view-mode');
+    }
+    if (desktopContainer) {
+      desktopContainer.classList.remove('d-edit-mode');
+      desktopContainer.classList.add('d-view-mode');
+    }
+  }
+}
+
+async function loadMonthVariableExpenses(monthOverride) {
   const y = STATE.currentYear;
-  const m = STATE.currentMonth;
+  const m = monthOverride || STATE.currentMonth;
   const catFilter = document.getElementById('filterCategory')?.value || '';
 
   let url = `/api/transactions?year=${y}&month=${m}&limit=500`;
@@ -469,31 +670,165 @@ async function loadMonthVariableExpenses() {
   try {
     const res = await fetch(url);
     const items = await res.json();
+    STATE.cachedVarExpenses = items || [];
+
+    // 1. Render Mobile Timeline Cards (3-column, 2-row layout)
+    renderMonthVariableExpensesMobile(items);
+
+    // 2. Render Desktop Spreadsheet Table (with '09/18' date format)
     const tbody = document.getElementById('monthVarExpenseBody');
-    if (!tbody) return;
-
-    if (items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-gray-400">등록된 변동 지출 내역이 없습니다.</td></tr>';
-      return;
+    if (tbody) {
+      if (!items || items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-slate-400 font-medium">등록된 변동 지출 내역이 없습니다.</td></tr>';
+      } else {
+        tbody.innerHTML = items.map(item => `
+          <tr>
+            <td class="text-center font-mono font-bold text-slate-700">${formatShortSlashDate(item.transaction_date)}</td>
+            <td class="text-center">
+              <span class="badge-category" style="background-color: ${item.category_color || '#A8E6CF'}25; color: #0F172A;">${escapeHtml(item.category_name || '기타')}</span>
+            </td>
+            <td class="font-bold text-slate-900">${escapeHtml(item.title)}</td>
+            <td class="text-center"><span class="badge-pay">${escapeHtml(item.payment_method_name || '현금')}</span></td>
+            <td class="text-right font-black text-rose-600">${formatKRW(item.amount)}원</td>
+            <td class="text-slate-500 text-xs">${escapeHtml(item.memo || '')}</td>
+            <td class="text-center d-edit-actions">
+              <button onclick="openEditTransactionModal(${item.id})" class="btn-tx-edit">수정</button>
+            </td>
+            <td class="text-center d-edit-actions">
+              <button onclick="deleteTransaction(${item.id})" class="btn-tx-del">삭제</button>
+            </td>
+          </tr>
+        `).join('');
+      }
     }
-
-    tbody.innerHTML = items.map(item => `
-      <tr>
-        <td class="text-center font-mono">${item.transaction_date.slice(5)}</td>
-        <td class="text-center">
-          <span class="badge-category" style="background-color: ${item.category_color}22;">${item.category_name}</span>
-        </td>
-        <td class="font-medium">${escapeHtml(item.title)}</td>
-        <td class="text-center"><span class="badge-pay">${item.payment_method_name}</span></td>
-        <td class="text-right font-bold text-rose-600">${formatKRW(item.amount)}원</td>
-        <td class="text-gray-400 text-xs">${escapeHtml(item.memo || '')}</td>
-        <td class="text-center">
-          <button onclick="deleteTransaction(${item.id})" class="text-gray-400 hover:text-rose-500">✕</button>
-        </td>
-      </tr>
-    `).join('');
   } catch (err) {
     console.error('Failed to load month variable expenses', err);
+  }
+}
+
+// Render Mobile-First Variable Expenses in 3-Column, 2-Row layout:
+//       분류      지출내용    수정
+//   일자
+//       결제수단   금액       삭제
+function renderMonthVariableExpensesMobile(items) {
+  const container = document.getElementById('monthVarExpenseMobileList');
+  if (!container) return;
+
+  if (!items || items.length === 0) {
+    container.innerHTML = `
+      <div class="glass-card p-8 text-center text-slate-500 font-medium text-sm">
+        등록된 변동 지출 내역이 없습니다. ☕
+      </div>
+    `;
+    return;
+  }
+
+  const html = items.map(item => `
+    <div class="mobile-tx-card-grid" data-id="${item.id}">
+      <!-- Col 1: 일자 (Spans 2 rows, Vertically centered) -->
+      <div class="mobile-tx-col-date">
+        <span>${formatShortSlashDate(item.transaction_date)}</span>
+      </div>
+
+      <!-- Col 2, Row 1: 분류 + 지출내용 -->
+      <div class="mobile-tx-col-top">
+        <span class="badge-category flex-shrink-0" style="background-color: ${item.category_color || '#A8E6CF'}30; color: #0F172A;">
+          ${escapeHtml(item.category_name || '기타')}
+        </span>
+        <span class="font-bold text-slate-900 truncate text-sm">
+          ${escapeHtml(item.title)}
+        </span>
+      </div>
+
+      <!-- Col 3, Row 1: 수정 버튼 -->
+      <div class="mobile-tx-col-edit d-edit-actions">
+        <button type="button" onclick="openEditTransactionModal(${item.id})" class="btn-tx-edit">
+          수정
+        </button>
+      </div>
+
+      <!-- Col 2, Row 2: 결제수단 + 금액 -->
+      <div class="mobile-tx-col-bottom">
+        <span class="badge-pay text-[11px] py-0.5 px-1.5 flex-shrink-0">
+          ${escapeHtml(item.payment_method_name || '현금')}
+        </span>
+        <span class="font-black text-rose-600 text-sm whitespace-nowrap">
+          -${formatKRW(item.amount)}원
+        </span>
+        ${item.memo ? `<span class="text-[11px] text-slate-400 truncate max-w-[80px]">(${escapeHtml(item.memo)})</span>` : ''}
+      </div>
+
+      <!-- Col 3, Row 2: 삭제 버튼 -->
+      <div class="mobile-tx-col-del d-edit-actions">
+        <button type="button" onclick="deleteTransaction(${item.id})" class="btn-tx-del">
+          삭제
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+  container.innerHTML = html;
+}
+
+// Single Transaction Edit Modal Handlers
+function openEditTransactionModal(id) {
+  const item = (STATE.cachedVarExpenses || []).find(it => it.id === id);
+  if (!item) return;
+
+  document.getElementById('editTxId').value = item.id;
+  document.getElementById('editTxDate').value = item.transaction_date;
+  document.getElementById('editTxTitle').value = item.title;
+  document.getElementById('editTxAmount').value = item.amount;
+  document.getElementById('editTxMemo').value = item.memo || '';
+
+  // Populate Categories
+  const catSelect = document.getElementById('editTxCategory');
+  catSelect.innerHTML = STATE.categories.map(c => `
+    <option value="${c.id}" ${c.id === item.category_id ? 'selected' : ''}>${escapeHtml(c.name)}</option>
+  `).join('');
+
+  // Populate Payment Methods
+  const paySelect = document.getElementById('editTxPayment');
+  paySelect.innerHTML = STATE.paymentMethods.map(p => `
+    <option value="${p.id}" ${p.id === item.payment_method_id ? 'selected' : ''}>${escapeHtml(p.name)}</option>
+  `).join('');
+
+  document.getElementById('modalEditTransaction').classList.remove('hidden');
+}
+
+function closeEditTransactionModal() {
+  document.getElementById('modalEditTransaction').classList.add('hidden');
+}
+
+async function submitEditTransaction(event) {
+  event.preventDefault();
+  const id = document.getElementById('editTxId').value;
+  const payload = {
+    transaction_date: document.getElementById('editTxDate').value,
+    category_id: parseInt(document.getElementById('editTxCategory').value, 10),
+    title: document.getElementById('editTxTitle').value.trim(),
+    payment_method_id: parseInt(document.getElementById('editTxPayment').value, 10),
+    amount: parseInt(document.getElementById('editTxAmount').value, 10),
+    memo: document.getElementById('editTxMemo').value.trim()
+  };
+
+  try {
+    const res = await fetch(`/api/transactions/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('수정에 실패했습니다.');
+
+    closeEditTransactionModal();
+    // Refresh Month Details & KPI Cards
+    await loadMonthDetail(STATE.currentMonth);
+    // If on today tab, refresh today list as well
+    if (STATE.currentTab === 'today') {
+      loadTodayOverview();
+    }
+  } catch (err) {
+    alert('수정 실패: ' + err.message);
   }
 }
 
@@ -532,34 +867,34 @@ function renderAnnualTable(data) {
   if (!tbody) return;
 
   const monthRows = data.months.map(m => `
-    <tr class="cursor-pointer hover:bg-purple-50/50" onclick="switchTab(${m.month})">
-      <td class="text-center font-bold text-purple-700">${m.month_name}</td>
-      <td class="text-right">${formatKRW(m.total_income)}</td>
-      <td class="text-right">${formatKRW(m.fixed_expense)}</td>
-      <td class="text-right">${formatKRW(m.variable_expense)}</td>
-      <td class="text-right font-semibold text-rose-600">${formatKRW(m.total_expense)}</td>
-      <td class="text-right font-semibold text-blue-600">${formatKRW(m.savings_investment)}</td>
-      <td class="text-right font-semibold text-emerald-600">${formatKRW(m.balance)}</td>
-      <td class="text-center font-bold text-purple-600">${m.savings_rate}%</td>
+    <tr class="cursor-pointer hover:bg-purple-50/70" onclick="switchTab(${m.month})">
+      <td class="text-center font-extrabold text-purple-800">${m.month_name}</td>
+      <td class="text-right font-semibold">${formatKRW(m.total_income)}</td>
+      <td class="text-right font-semibold">${formatKRW(m.fixed_expense)}</td>
+      <td class="text-right font-semibold">${formatKRW(m.variable_expense)}</td>
+      <td class="text-right font-extrabold text-rose-600">${formatKRW(m.total_expense)}</td>
+      <td class="text-right font-extrabold text-blue-700">${formatKRW(m.savings_investment)}</td>
+      <td class="text-right font-extrabold text-emerald-700">${formatKRW(m.balance)}</td>
+      <td class="text-center font-black text-purple-700">${m.savings_rate}%</td>
     </tr>
   `).join('');
 
   const totalRow = `
-    <tr class="bg-purple-100/70 font-bold">
-      <td class="text-center text-purple-900">${data.annual_total.month_name}</td>
+    <tr class="bg-purple-100/80 font-black">
+      <td class="text-center text-purple-950">${data.annual_total.month_name}</td>
       <td class="text-right">${formatKRW(data.annual_total.total_income)}</td>
       <td class="text-right">${formatKRW(data.annual_total.fixed_expense)}</td>
       <td class="text-right">${formatKRW(data.annual_total.variable_expense)}</td>
       <td class="text-right text-rose-700">${formatKRW(data.annual_total.total_expense)}</td>
-      <td class="text-right text-blue-700">${formatKRW(data.annual_total.savings_investment)}</td>
-      <td class="text-right text-emerald-700">${formatKRW(data.annual_total.balance)}</td>
-      <td class="text-center text-purple-900">${data.annual_total.savings_rate}%</td>
+      <td class="text-right text-blue-800">${formatKRW(data.annual_total.savings_investment)}</td>
+      <td class="text-right text-emerald-800">${formatKRW(data.annual_total.balance)}</td>
+      <td class="text-center text-purple-950">${data.annual_total.savings_rate}%</td>
     </tr>
   `;
 
   const avgRow = `
-    <tr class="bg-gray-100/80 font-bold">
-      <td class="text-center text-gray-800">${data.monthly_average.month_name}</td>
+    <tr class="bg-slate-100/90 font-bold">
+      <td class="text-center text-slate-800">${data.monthly_average.month_name}</td>
       <td class="text-right">${formatKRW(data.monthly_average.total_income)}</td>
       <td class="text-right">${formatKRW(data.monthly_average.fixed_expense)}</td>
       <td class="text-right">${formatKRW(data.monthly_average.variable_expense)}</td>
@@ -591,24 +926,24 @@ function renderTrendChart(data) {
         {
           label: '총 수입',
           data: incomes,
-          backgroundColor: '#A8E6CFcc',
-          borderColor: '#A8E6CF',
+          backgroundColor: '#A8E6CFee',
+          borderColor: '#48BB78',
           borderWidth: 1.5,
           borderRadius: 6
         },
         {
           label: '총 지출',
           data: expenses,
-          backgroundColor: '#FFB7B2cc',
-          borderColor: '#FFB7B2',
+          backgroundColor: '#FFB7B2ee',
+          borderColor: '#E53E3E',
           borderWidth: 1.5,
           borderRadius: 6
         },
         {
           label: '저축 및 투자',
           data: savings,
-          backgroundColor: '#BEE3F8cc',
-          borderColor: '#BEE3F8',
+          backgroundColor: '#BEE3F8ee',
+          borderColor: '#3182CE',
           borderWidth: 1.5,
           borderRadius: 6
         }
@@ -618,18 +953,19 @@ function renderTrendChart(data) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'top', labels: { font: { family: 'Pretendard', size: 12 } } }
+        legend: { position: 'top', labels: { font: { family: 'Pretendard', size: 12, weight: 'bold' } } }
       },
       scales: {
         y: {
           ticks: {
             callback: (v) => v >= 10000 ? (v / 10000) + '만' : v,
-            font: { size: 11 }
+            font: { size: 11, weight: 'bold' }
           },
-          grid: { color: 'rgba(229, 231, 235, 0.4)' }
+          grid: { color: 'rgba(203, 213, 225, 0.4)' }
         },
         x: {
-          grid: { display: false }
+          grid: { display: false },
+          ticks: { font: { size: 11, weight: 'bold' } }
         }
       }
     }
@@ -642,7 +978,7 @@ function renderDonutChart(catData) {
   if (STATE.donutChart) STATE.donutChart.destroy();
 
   if (!catData || catData.length === 0) {
-    ctx.parentElement.innerHTML = '<div class="text-xs text-gray-400 text-center">지출 데이터가 없습니다</div>';
+    ctx.parentElement.innerHTML = '<div class="text-sm text-slate-500 font-bold text-center">지출 데이터가 없습니다</div>';
     return;
   }
 
@@ -666,27 +1002,211 @@ function renderDonutChart(catData) {
       maintainAspectRatio: false,
       cutout: '65%',
       plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12, weight: 'bold' } } }
       }
     }
   });
 }
 
-// --- Modals & File Handling ---
-function openQRModal() {
-  const modal = document.getElementById('modalQR');
+// --- Settings & Google Drive Cloud Backup Handlers ---
+function openSettingsModal() {
+  const modal = document.getElementById('modalSettings');
   const img = document.getElementById('modalQRImage');
   const urlSpan = document.getElementById('modalQRUrl');
 
   if (STATE.networkInfo) {
-    img.src = STATE.networkInfo.qr_code;
-    urlSpan.textContent = STATE.networkInfo.mobile_url;
+    if (img) img.src = STATE.networkInfo.qr_code;
+    if (urlSpan) urlSpan.textContent = STATE.networkInfo.mobile_url;
   }
-  modal.classList.remove('hidden');
+  if (modal) modal.classList.remove('hidden');
+
+  // Load Google Drive Status & Backups
+  loadGdriveStatus();
+  loadGdriveBackupsList();
+}
+
+function closeSettingsModal() {
+  const modal = document.getElementById('modalSettings');
+  if (modal) modal.classList.add('hidden');
+}
+
+// Backwards compatibility aliases
+function openQRModal() {
+  openSettingsModal();
 }
 
 function closeQRModal() {
-  document.getElementById('modalQR').classList.add('hidden');
+  closeSettingsModal();
+}
+
+async function loadGdriveStatus() {
+  try {
+    const res = await fetch('/api/gdrive/status');
+    const data = await res.json();
+    const badge = document.getElementById('gdriveStatusBadge');
+    const email = document.getElementById('gdriveEmailText');
+    const lastBackup = document.getElementById('gdriveLastBackupText');
+    const schedSelect = document.getElementById('gdriveScheduleSelect');
+
+    if (data.connected) {
+      if (badge) {
+        badge.textContent = '연동 완료';
+        badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800';
+      }
+      if (email) email.textContent = `${data.account_email || 'Google Drive 계정'} (${data.folder_name})`;
+    } else {
+      if (badge) {
+        badge.textContent = data.has_credentials ? '연결 확인 필요' : '미연동';
+        badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800';
+      }
+      if (email) email.textContent = data.has_credentials ? '인증 키 등록됨 (연결 테스트 필요)' : '미연동 (서비스 계정 키 등록 필요)';
+    }
+
+    if (lastBackup) {
+      lastBackup.textContent = data.last_backup_time ? `${data.last_backup_time} (${data.last_backup_status || '성공'})` : '없음';
+    }
+
+    if (schedSelect && data.schedule) {
+      schedSelect.value = data.schedule;
+    }
+  } catch (err) {
+    console.error('Failed to load gdrive status', err);
+  }
+}
+
+async function triggerGdriveBackup() {
+  const btn = document.getElementById('btnTriggerGdriveBackup');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '☁️ 백업 업로드 중...';
+  }
+
+  try {
+    const res = await fetch('/api/gdrive/backup', { method: 'POST' });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.detail || '백업 실패');
+
+    alert(result.message || 'Google Drive에 백업이 완료되었습니다!');
+    loadGdriveStatus();
+    loadGdriveBackupsList();
+  } catch (err) {
+    alert('구글 드라이브 백업 실패: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '☁️ 지금 구글 드라이브 백업';
+    }
+  }
+}
+
+async function testGdriveConnection() {
+  try {
+    const res = await fetch('/api/gdrive/test', { method: 'POST' });
+    const data = await res.json();
+    alert(data.message || (data.connected ? '연결 성공!' : '연결 실패'));
+    loadGdriveStatus();
+  } catch (err) {
+    alert('연결 테스트 실패: ' + err.message);
+  }
+}
+
+async function saveGdriveSchedule() {
+  const select = document.getElementById('gdriveScheduleSelect');
+  const val = select.value;
+  try {
+    const res = await fetch('/api/gdrive/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ schedule: val })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.detail || '설정 저장 실패');
+    alert(result.message || '자동 백업 주기가 저장되었습니다.');
+  } catch (err) {
+    alert('스케줄 저장 실패: ' + err.message);
+  }
+}
+
+async function handleGdriveCredsUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch('/api/gdrive/credentials', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.detail || '키 등록 실패');
+
+    alert('서비스 계정 키가 등록되었습니다!\n' + (result.test_result?.message || '연동 성공'));
+    loadGdriveStatus();
+    loadGdriveBackupsList();
+  } catch (err) {
+    alert('인증 키 등록 실패: ' + err.message);
+  } finally {
+    e.target.value = '';
+  }
+}
+
+function toggleGdriveHelp() {
+  const el = document.getElementById('gdriveHelpBox');
+  if (el) el.classList.toggle('hidden');
+}
+
+async function loadGdriveBackupsList() {
+  const container = document.getElementById('gdriveBackupsContainer');
+  if (!container) return;
+
+  try {
+    const res = await fetch('/api/gdrive/backups');
+    const data = await res.json();
+    const backups = data.backups || [];
+
+    if (backups.length === 0) {
+      container.innerHTML = '<div class="text-center py-3 text-slate-400 text-xs">구글 드라이브에 저장된 백업 파일이 없습니다.</div>';
+      return;
+    }
+
+    container.innerHTML = backups.map(b => {
+      const sizeKb = Math.round((b.size || 0) / 1024);
+      const dateStr = b.created_time ? b.created_time.slice(0, 19).replace('T', ' ') : '';
+      return `
+        <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 hover:bg-indigo-50/50 border border-slate-200">
+          <div class="min-w-0 pr-2">
+            <span class="font-bold text-slate-800 block truncate text-xs">${escapeHtml(b.name)}</span>
+            <span class="text-[10px] text-slate-500">${dateStr} (${sizeKb} KB)</span>
+          </div>
+          <button type="button" onclick="restoreFromGdrive('${b.id}', '${escapeHtml(b.name)}')" class="btn-pastel btn-ghost btn-sm text-indigo-700 border-indigo-200 hover:bg-indigo-100 font-bold py-1 px-2.5 text-[11px]">
+            복구
+          </button>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = '<div class="text-center py-2 text-rose-500 text-xs">목록을 가져올 수 없습니다.</div>';
+  }
+}
+
+async function restoreFromGdrive(fileId, fileName) {
+  if (!confirm(`'${fileName}' 백업 파일로 가계부 데이터를 복원하시겠습니까?\n\n※ 안전을 위해 현재 데이터베이스는 backups/ 폴더에 자동 백업됩니다.`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/gdrive/restore/${fileId}`, { method: 'POST' });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.detail || '복원 실패');
+
+    alert(result.message || '데이터가 성공적으로 복원되었습니다.');
+    closeSettingsModal();
+    window.location.reload();
+  } catch (err) {
+    alert('복원 실패: ' + err.message);
+  }
 }
 
 function openBackupModal() {
@@ -837,4 +1357,3 @@ async function executeDataReset() {
     btn.textContent = '초기화 실행';
   }
 }
-

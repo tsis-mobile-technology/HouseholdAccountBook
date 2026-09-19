@@ -25,11 +25,14 @@ def test_meta_endpoints():
     assert "qr_code" in data
     assert data["qr_code"].startswith("data:image/png;base64,")
 
+from datetime import datetime
+
 def test_transaction_api_and_overview():
     cat_id = client.get("/api/meta/categories").json()[0]["id"]
     pay_id = client.get("/api/meta/payment-methods").json()[0]["id"]
+    today_str = datetime.now().strftime("%Y-%m-%d")
     payload = {
-        "transaction_date": "2026-09-13",
+        "transaction_date": today_str,
         "category_id": cat_id,
         "title": "API 테스트 점심",
         "payment_method_id": pay_id,

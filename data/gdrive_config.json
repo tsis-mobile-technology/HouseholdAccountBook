@@ -1,0 +1,10 @@
+{
+  "enabled": false,
+  "folder_name": "HouseholdAccountBook_Backups",
+  "folder_id": null,
+  "schedule": "off",
+  "last_backup_time": null,
+  "last_backup_status": null,
+  "account_email": null,
+  "auth_type": null
+}

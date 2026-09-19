@@ -55,20 +55,21 @@ class VariableExpenseResponse(BaseModel):
 # --- Fixed Plans (Income, Expense, Savings) ---
 class FixedPlanItem(BaseModel):
     id: Optional[int] = None
-    year: int
-    month: int
+    year: Optional[int] = 0
+    month: Optional[int] = 0
     item_name: str
     day: Optional[str] = ""  # expected_day / withdrawal_day / payment_day
     description: Optional[str] = ""
     amount: int = Field(default=0, ge=0)
-    is_template: int = 0
+    is_template: Optional[int] = 0
 
 class MonthFixedPlansUpdate(BaseModel):
-    year: int
-    month: int
-    incomes: List[FixedPlanItem]
-    expenses: List[FixedPlanItem]
-    savings: List[FixedPlanItem]
+    year: Optional[int] = None
+    month: Optional[int] = None
+    incomes: List[FixedPlanItem] = []
+    expenses: List[FixedPlanItem] = []
+    savings: List[FixedPlanItem] = []
+    is_template: Optional[bool] = False
 
 # --- Monthly & Annual Analytics ---
 class MonthlySummaryResponse(BaseModel):

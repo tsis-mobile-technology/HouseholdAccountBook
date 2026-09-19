@@ -50,5 +50,7 @@ data/*.db-shm
 data/backups/*
 !data/backups/.gitkeep
 !data/.gitkeep
+data/gdrive_credentials.json
+data/*.token.json
 exports/*
 !exports/.gitkeep

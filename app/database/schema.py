@@ -83,7 +83,8 @@ DEFAULT_CATEGORIES = [
     ("문화/여가", "#DED2F9", "film", 5),
     ("의료/건강", "#FFB7B2", "heartbeat", 6),
     ("쇼핑/의류", "#E2F0D9", "tshirt", 7),
-    ("기타", "#E2E8F0", "ellipsis-h", 8),
+    ("별콩이", "#FBCFE8", "heart", 8),
+    ("기타", "#E2E8F0", "ellipsis-h", 9),
 ]
 
 DEFAULT_PAYMENTS = [

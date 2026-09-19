@@ -1,4 +1,4 @@
-const CACHE_NAME = 'household-book-v1.1';
+const CACHE_NAME = 'household-book-v20260919-05';
 const ASSETS_TO_CACHE = [
   '/',
   '/static/css/style.css',
@@ -8,11 +8,6 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
   self.skipWaiting();
 });
 
@@ -20,9 +15,7 @@ self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.map((k) => {
-          if (k !== CACHE_NAME) return caches.delete(k);
-        })
+        keys.map((k) => caches.delete(k))
       );
     })
   );
@@ -30,12 +23,8 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // Network first for APIs, cache fallback for assets
-  if (e.request.url.includes('/api/')) {
-    e.respondWith(fetch(e.request));
-  } else {
-    e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
-    );
-  }
+  // Always network-first to avoid stale JS/CSS code in development/production
+  e.respondWith(
+    fetch(e.request).catch(() => caches.match(e.request))
+  );
 });
