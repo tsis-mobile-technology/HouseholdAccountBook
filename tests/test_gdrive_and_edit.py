@@ -36,26 +36,37 @@ def test_gdrive_local_backups():
     assert isinstance(data["backups"], list)
 
 def test_modify_transaction_api():
-    # 1. Create a transaction
+    # 1. Create a transaction with 10-won unit (e.g., 4,570 KRW)
     post_res = client.post("/api/transactions", json={
         "transaction_date": "2026-09-19",
         "category_id": 1,
         "title": "테스트 수정 전 커피",
         "payment_method_id": 1,
-        "amount": 4500,
+        "amount": 4570,
         "memo": "아메리카노"
     })
     assert post_res.status_code == 200
     tx_id = post_res.json()["id"]
 
-    # 2. Modify it
+    # Verify amount saved correctly
+    get_res = client.get("/api/transactions?year=2026&month=9")
+    assert get_res.status_code == 200
+    item = next(it for it in get_res.json() if it["id"] == tx_id)
+    assert item["amount"] == 4570
+
+    # 2. Modify it with 1-won unit (e.g., 5,234 KRW)
     put_res = client.put(f"/api/transactions/{tx_id}", json={
         "title": "테스트 수정 후 라떼",
-        "amount": 5000,
+        "amount": 5234,
         "memo": "바닐라라떼"
     })
     assert put_res.status_code == 200
     assert put_res.json()["status"] == "success"
+
+    # Verify updated amount
+    get_res2 = client.get("/api/transactions?year=2026&month=9")
+    item2 = next(it for it in get_res2.json() if it["id"] == tx_id)
+    assert item2["amount"] == 5234
 
     # 3. Clean up
     del_res = client.delete(f"/api/transactions/{tx_id}")

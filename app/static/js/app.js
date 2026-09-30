@@ -486,7 +486,7 @@ function renderFixedTable(tbodyId, items, isEditing = false) {
         <td class="py-1.5"><input type="text" value="${escapeHtml(item.item_name)}" class="glass-input text-xs py-1.5 px-2 rounded-lg font-bold item-name" style="width: 100px"></td>
         <td class="py-1.5"><input type="text" value="${escapeHtml(item.day || '')}" class="glass-input text-xs py-1.5 px-2 rounded-lg text-center font-bold item-day" style="width: 50px"></td>
         <td class="py-1.5"><input type="text" value="${escapeHtml(item.description || '')}" class="glass-input text-xs py-1.5 px-2 rounded-lg item-desc" style="width: 110px"></td>
-        <td class="py-1.5 text-right"><input type="number" value="${item.amount}" class="glass-input text-xs py-1.5 px-2 rounded-lg text-right item-amt font-extrabold text-slate-800" style="width: 90px"></td>
+        <td class="py-1.5 text-right"><input type="number" value="${item.amount}" min="0" step="1" class="glass-input text-xs py-1.5 px-2 rounded-lg text-right item-amt font-extrabold text-slate-800" style="width: 90px"></td>
         <td class="py-1.5 text-center fixed-del-col"><button onclick="this.closest('tr').remove()" class="text-slate-400 hover:text-rose-600 font-bold p-1">✕</button></td>
       </tr>
     `).join('');
@@ -548,7 +548,7 @@ function addFixedRow(type) {
     <td class="py-1.5"><input type="text" placeholder="항목명" class="glass-input text-xs py-1.5 px-2 rounded-lg font-bold item-name" style="width: 100px"></td>
     <td class="py-1.5"><input type="text" placeholder="일자" class="glass-input text-xs py-1.5 px-2 rounded-lg text-center font-bold item-day" style="width: 50px"></td>
     <td class="py-1.5"><input type="text" placeholder="설명" class="glass-input text-xs py-1.5 px-2 rounded-lg item-desc" style="width: 110px"></td>
-    <td class="py-1.5 text-right"><input type="number" value="0" class="glass-input text-xs py-1.5 px-2 rounded-lg text-right item-amt font-extrabold text-slate-800" style="width: 90px"></td>
+    <td class="py-1.5 text-right"><input type="number" value="0" min="0" step="1" class="glass-input text-xs py-1.5 px-2 rounded-lg text-right item-amt font-extrabold text-slate-800" style="width: 90px"></td>
     <td class="py-1.5 text-center fixed-del-col"><button onclick="this.closest('tr').remove()" class="text-slate-400 hover:text-rose-600 font-bold p-1">✕</button></td>
   `;
   tbody.appendChild(tr);

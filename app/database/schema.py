@@ -78,13 +78,14 @@ CREATE INDEX IF NOT EXISTS idx_savings_ym ON savings_investments(year, month);
 DEFAULT_CATEGORIES = [
     ("식비", "#A8E6CF", "utensils", 1),
     ("외식/카페", "#FFD3B6", "coffee", 2),
-    ("교통/차량", "#BEE3F8", "car", 3),
-    ("생활용품", "#FFF3B0", "shopping-bag", 4),
-    ("문화/여가", "#DED2F9", "film", 5),
+    ("생활용품", "#FFF3B0", "shopping-bag", 3),
+    ("문화/여가", "#DED2F9", "film", 4),
+    ("학원/도서", "#C7D2FE", "book", 5),
     ("의료/건강", "#FFB7B2", "heartbeat", 6),
     ("쇼핑/의류", "#E2F0D9", "tshirt", 7),
     ("별콩이", "#FBCFE8", "heart", 8),
-    ("기타", "#E2E8F0", "ellipsis-h", 9),
+    ("교통/차량", "#BEE3F8", "car", 9),
+    ("기타", "#E2E8F0", "ellipsis-h", 10),
 ]
 
 DEFAULT_PAYMENTS = [
@@ -123,11 +124,16 @@ def init_database():
     with get_db_cursor() as cur:
         cur.executescript(SCHEMA_SQL)
 
-        # Seed categories
+        # Seed and sync categories
         for name, color, icon, order in DEFAULT_CATEGORIES:
             cur.execute("""
-                INSERT OR IGNORE INTO categories (name, color_hex, icon, sort_order)
+                INSERT INTO categories (name, color_hex, icon, sort_order)
                 VALUES (?, ?, ?, ?)
+                ON CONFLICT(name) DO UPDATE SET
+                    sort_order = excluded.sort_order,
+                    color_hex = excluded.color_hex,
+                    icon = excluded.icon,
+                    is_active = 1
             """, (name, color, icon, order))
 
         # Seed payment methods

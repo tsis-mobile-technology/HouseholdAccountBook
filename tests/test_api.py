@@ -11,7 +11,14 @@ def test_root_index():
 def test_meta_endpoints():
     r1 = client.get("/api/meta/categories")
     assert r1.status_code == 200
-    assert len(r1.json()) >= 6
+    categories = r1.json()
+    assert len(categories) == 10
+    expected_names = [
+        "식비", "외식/카페", "생활용품", "문화/여가", "학원/도서",
+        "의료/건강", "쇼핑/의류", "별콩이", "교통/차량", "기타"
+    ]
+    actual_names = [c["name"] for c in categories]
+    assert actual_names == expected_names, f"Expected {expected_names} but got {actual_names}"
 
     r2 = client.get("/api/meta/payment-methods")
     assert r2.status_code == 200
