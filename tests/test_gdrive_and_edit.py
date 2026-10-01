@@ -35,6 +35,33 @@ def test_gdrive_local_backups():
     assert data["status"] == "success"
     assert isinstance(data["backups"], list)
 
+def test_gdrive_folder_id():
+    response = client.post("/api/gdrive/folder-id", json={"folder_id": "test_folder_12345"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["folder_id"] == "test_folder_12345"
+
+    # Reset
+    res_reset = client.post("/api/gdrive/folder-id", json={"folder_id": None})
+    assert res_reset.status_code == 200
+    assert res_reset.json()["folder_id"] is None
+
+def test_gdrive_oauth_client_config():
+    response = client.post("/api/gdrive/oauth/client-secrets", json={
+        "client_id": "test-client-id.apps.googleusercontent.com",
+        "client_secret": "test-client-secret"
+    })
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+
+    # Test OAuth URL generation with registered client
+    url_res = client.get("/api/gdrive/oauth/url?redirect_uri=http://localhost:8000/api/gdrive/oauth/callback")
+    assert url_res.status_code == 200
+    data = url_res.json()
+    assert data["status"] == "success"
+    assert "https://accounts.google.com/o/oauth2/auth" in data["url"]
+
 def test_modify_transaction_api():
     # 1. Create a transaction with 10-won unit (e.g., 4,570 KRW)
     post_res = client.post("/api/transactions", json={

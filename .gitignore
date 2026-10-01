@@ -51,6 +51,9 @@ data/backups/*
 !data/backups/.gitkeep
 !data/.gitkeep
 data/gdrive_credentials.json
+data/gdrive_client_secret.json
+data/gdrive_config.json
+data/.oauth_states.json
 data/*.token.json
 exports/*
 !exports/.gitkeep

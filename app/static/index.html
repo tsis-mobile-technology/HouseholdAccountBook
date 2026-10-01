@@ -512,18 +512,18 @@
        MODALS
        ==================================================================== -->
 
-  <!-- Modal 1: Settings & Mobile QR Hub (기존 폰연결 상단 + Google Drive 하단) -->
+  <!-- Modal 1: Settings & Mobile QR Hub -->
   <div id="modalSettings" class="modal-backdrop hidden" onclick="closeSettingsModal(event)">
     <div class="modal-content p-5 sm:p-6" onclick="event.stopPropagation()">
       <div class="flex items-center justify-between mb-3.5">
         <h3 class="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
-          <span>⚙️ 환경설정 & 스마트폰 연결</span>
+          <span>📱 스마트폰 모바일 연결</span>
         </h3>
         <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold p-1">✕</button>
       </div>
 
       <div class="space-y-4">
-        <!-- 1. Phone Connect Section (Top) -->
+        <!-- 1. Phone Connect Section -->
         <div class="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-100 shadow-sm text-center">
           <div class="flex items-center justify-between mb-2">
             <h4 class="text-sm font-extrabold text-purple-950 flex items-center gap-1.5">
@@ -540,83 +540,6 @@
           <div class="p-2.5 rounded-xl bg-white text-purple-900 font-mono text-xs break-all mt-1 border border-purple-200 text-left">
             <span class="block text-[10px] text-purple-600 uppercase font-sans font-bold mb-0.5">모바일 직접 접속 주소</span>
             <span id="modalQRUrl" class="font-bold">http://...</span>
-          </div>
-        </div>
-
-        <!-- 2. Google Drive Cloud Backup & Restore Section (Bottom - "기존 폰연결 아래에 위치 시킨다") -->
-        <div class="p-3.5 rounded-2xl bg-indigo-50/60 border border-indigo-100 shadow-sm space-y-3">
-          <div class="flex items-center justify-between">
-            <h4 class="text-sm font-extrabold text-indigo-950 flex items-center gap-1.5">
-              ☁️ Google Drive 클라우드 백업 및 복구
-            </h4>
-            <span id="gdriveStatusBadge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-              확인 중...
-            </span>
-          </div>
-          
-          <!-- Account / Connection info -->
-          <div id="gdriveAccountInfo" class="text-xs text-slate-700 bg-white/90 p-2.5 rounded-xl border border-indigo-100 space-y-1">
-            <div class="flex items-center justify-between">
-              <span class="font-bold text-slate-600">계정 / 연동:</span>
-              <span id="gdriveEmailText" class="font-bold text-indigo-900 truncate max-w-[200px]">미연동</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="font-bold text-slate-600">최근 백업:</span>
-              <span id="gdriveLastBackupText" class="text-slate-500 font-medium">없음</span>
-            </div>
-          </div>
-
-          <!-- Action: Backup Now & Test -->
-          <div class="flex items-center gap-2">
-            <button type="button" onclick="triggerGdriveBackup()" id="btnTriggerGdriveBackup" class="btn-pastel btn-primary btn-sm flex-1 font-extrabold shadow-sm">
-              ☁️ 지금 구글 드라이브 백업
-            </button>
-            <button type="button" onclick="testGdriveConnection()" class="btn-pastel btn-ghost btn-sm border-slate-300 text-slate-700 font-bold">
-              🔄 연결 테스트
-            </button>
-          </div>
-
-          <!-- Periodic Backup Setting -->
-          <div class="pt-2 border-t border-indigo-100">
-            <label class="block text-xs font-bold text-slate-700 mb-1">⏰ 주기적 자동 백업 설정</label>
-            <div class="flex items-center gap-2">
-              <select id="gdriveScheduleSelect" onchange="saveGdriveSchedule()" class="glass-input text-xs py-2 px-2.5 rounded-xl font-bold text-slate-800 flex-1 bg-white">
-                <option value="off">사용 안 함 (수동 백업만)</option>
-                <option value="daily">매일 (자정 자동 백업)</option>
-                <option value="weekly">매주 (일요일 자동 백업)</option>
-                <option value="monthly">매월 (1일 자동 백업)</option>
-              </select>
-            </div>
-            <span class="text-[11px] text-slate-500 mt-1 block">설정된 주기에 맞춰 백그라운드에서 SQLite DB를 구글 드라이브에 안전하게 보관합니다.</span>
-          </div>
-
-          <!-- Service Account JSON Key Registration -->
-          <div class="pt-2 border-t border-indigo-100">
-            <div class="flex items-center justify-between mb-1">
-              <label class="text-xs font-bold text-slate-700">🔑 Google 서비스 계정 키 등록</label>
-              <button type="button" onclick="toggleGdriveHelp()" class="text-[11px] text-indigo-600 hover:underline font-bold">연동 가이드</button>
-            </div>
-            <div id="gdriveHelpBox" class="hidden text-[11px] text-slate-700 bg-white/95 p-3 rounded-xl border border-indigo-200 mb-2 leading-relaxed">
-              <strong>빠른 연동 3단계:</strong><br>
-              1. Google Cloud Console에서 무료 프로젝트 생성 후 <code>Google Drive API</code> 사용 설정<br>
-              2. <code>서비스 계정(Service Account)</code> 생성 후 키(JSON) 다운로드<br>
-              3. 아래 버튼으로 JSON 파일을 등록하면 즉시 클라우드 백업이 연동됩니다.
-            </div>
-            <input type="file" id="gdriveCredsFileInput" accept=".json" class="hidden" onchange="handleGdriveCredsUpload(event)">
-            <button type="button" onclick="document.getElementById('gdriveCredsFileInput').click()" class="btn-pastel btn-ghost btn-sm w-full border-indigo-300 text-indigo-800 hover:bg-indigo-100/50 font-bold">
-              📁 service_account.json 키 파일 선택 및 등록
-            </button>
-          </div>
-
-          <!-- Google Drive Backup Files List & Restore -->
-          <div class="pt-2 border-t border-indigo-100">
-            <div class="flex items-center justify-between mb-1.5">
-              <label class="text-xs font-bold text-slate-700">📂 클라우드 백업 목록 및 복구</label>
-              <button type="button" onclick="loadGdriveBackupsList()" class="text-[11px] text-indigo-600 hover:underline font-bold">새로고침</button>
-            </div>
-            <div id="gdriveBackupsContainer" class="max-h-40 overflow-y-auto space-y-1.5 text-xs bg-white/80 p-2 rounded-xl border border-indigo-100">
-              <div class="text-center py-3 text-slate-400 text-xs">목록을 불러오는 중...</div>
-            </div>
           </div>
         </div>
       </div>

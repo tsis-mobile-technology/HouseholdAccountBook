@@ -1095,10 +1095,6 @@ function openSettingsModal() {
     if (urlSpan) urlSpan.textContent = STATE.networkInfo.mobile_url;
   }
   if (modal) modal.classList.remove('hidden');
-
-  // Load Google Drive Status & Backups
-  loadGdriveStatus();
-  loadGdriveBackupsList();
 }
 
 function closeSettingsModal() {
@@ -1123,19 +1119,66 @@ async function loadGdriveStatus() {
     const email = document.getElementById('gdriveEmailText');
     const lastBackup = document.getElementById('gdriveLastBackupText');
     const schedSelect = document.getElementById('gdriveScheduleSelect');
+    const warningBox = document.getElementById('gdriveWarningBox');
+    const warningText = document.getElementById('gdriveWarningText');
+    const disconnectBtn = document.getElementById('btnGdriveDisconnect');
+    const folderIdInput = document.getElementById('gdriveFolderIdInput');
+    const oauthStatusText = document.getElementById('gdriveOAuthClientStatus');
+    const redirectCode = document.getElementById('oauthRedirectUriCode');
+
+    // Update displayed redirect URI to current origin
+    if (redirectCode) {
+      redirectCode.textContent = window.location.origin + '/api/gdrive/oauth/callback';
+    }
+
+    if (oauthStatusText) {
+      if (data.has_client_secret) {
+        oauthStatusText.textContent = '✅ OAuth 키 등록됨';
+        oauthStatusText.className = 'text-[11px] font-bold text-emerald-700';
+      } else {
+        oauthStatusText.textContent = '⚠️ OAuth 키 미등록 (아래 설정 필요)';
+        oauthStatusText.className = 'text-[11px] font-bold text-amber-700';
+      }
+    }
+
+    if (folderIdInput && data.folder_id) {
+      folderIdInput.value = data.folder_id;
+    }
 
     if (data.connected) {
+      if (disconnectBtn) disconnectBtn.classList.remove('hidden');
       if (badge) {
-        badge.textContent = '연동 완료';
-        badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800';
+        if (data.warning) {
+          badge.textContent = '주의 (용량 제한)';
+          badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800';
+        } else {
+          badge.textContent = data.auth_type === 'oauth' ? '연동 완료 (OAuth)' : '연동 완료 (서비스 계정)';
+          badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800';
+        }
       }
-      if (email) email.textContent = `${data.account_email || 'Google Drive 계정'} (${data.folder_name})`;
+      if (email) {
+        const typeLabel = data.auth_type === 'oauth' ? '개인 계정' : '서비스 계정';
+        email.textContent = `${data.account_email || 'Google Drive 계정'} [${typeLabel}] (${data.folder_name})`;
+      }
     } else {
+      if (disconnectBtn) disconnectBtn.classList.add('hidden');
       if (badge) {
         badge.textContent = data.has_credentials ? '연결 확인 필요' : '미연동';
-        badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800';
+        badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700';
       }
-      if (email) email.textContent = data.has_credentials ? '인증 키 등록됨 (연결 테스트 필요)' : '미연동 (서비스 계정 키 등록 필요)';
+      if (email) {
+        email.textContent = data.has_credentials ? '인증 키 등록됨 (연결 테스트 필요)' : '미연동 (Google 로그인 필요)';
+      }
+    }
+
+    // Display warning banner if present
+    if (warningBox && warningText) {
+      if (data.warning) {
+        warningText.textContent = data.warning;
+        warningBox.classList.remove('hidden');
+      } else {
+        warningBox.classList.add('hidden');
+      }
     }
 
     if (lastBackup) {
@@ -1166,7 +1209,7 @@ async function triggerGdriveBackup() {
     loadGdriveStatus();
     loadGdriveBackupsList();
   } catch (err) {
-    alert('구글 드라이브 백업 실패: ' + err.message);
+    alert('구글 드라이브 백업 실패:\n\n' + err.message);
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -1183,6 +1226,128 @@ async function testGdriveConnection() {
     loadGdriveStatus();
   } catch (err) {
     alert('연결 테스트 실패: ' + err.message);
+  }
+}
+
+async function startGdriveOAuthLogin() {
+  try {
+    const redirectUri = window.location.origin + '/api/gdrive/oauth/callback';
+    const res = await fetch(`/api/gdrive/oauth/url?redirect_uri=${encodeURIComponent(redirectUri)}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      if (res.status === 400 && data.detail && data.detail.includes('클라이언트 정보')) {
+        alert('OAuth 클라이언트 키 설정이 필요합니다.\n\n먼저 [클라이언트 키 설정]을 열어 Google Cloud Console에서 발급받은 client_secret.json 파일을 등록하거나 Client ID와 Secret을 입력해주세요.');
+        const el = document.getElementById('gdriveOAuthSettingsBox');
+        if (el) el.classList.remove('hidden');
+        return;
+      }
+      throw new Error(data.detail || 'OAuth URL 요청 실패');
+    }
+
+    const width = 520, height = 650;
+    const left = Math.max(0, (window.innerWidth - width) / 2 + window.screenX);
+    const top = Math.max(0, (window.innerHeight - height) / 2 + window.screenY);
+    const popup = window.open(data.url, 'google_oauth_popup', `width=${width},height=${height},top=${top},left=${left}`);
+
+    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+      // If popup blocked, redirect directly
+      window.location.href = data.url;
+    }
+  } catch (err) {
+    alert('구글 로그인 시작 실패:\n' + err.message);
+  }
+}
+
+async function saveGdriveOAuthManual() {
+  const cidInput = document.getElementById('gdriveClientIdInput');
+  const csecInput = document.getElementById('gdriveClientSecretInput');
+  const clientId = cidInput ? cidInput.value.trim() : '';
+  const clientSecret = csecInput ? csecInput.value.trim() : '';
+
+  if (!clientId || !clientSecret) {
+    alert('Google Client ID와 Client Secret을 모두 입력해주세요.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/gdrive/oauth/client-secrets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: clientId, client_secret: clientSecret })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.detail || '저장 실패');
+    alert('OAuth 2.0 클라이언트 정보가 저장되었습니다.\n\n이제 [Google 계정으로 로그인하여 연동] 버튼을 눌러 연동을 진행하세요!');
+    loadGdriveStatus();
+  } catch (err) {
+    alert('설정 저장 실패: ' + err.message);
+  }
+}
+
+function copyRedirectUri() {
+  const uri = window.location.origin + '/api/gdrive/oauth/callback';
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(uri).then(() => {
+      alert('승인된 리디렉션 URI가 복사되었습니다:\n' + uri);
+    }).catch(() => {
+      prompt('아래 URI를 복사하여 Google Cloud Console에 등록하세요:', uri);
+    });
+  } else {
+    prompt('아래 URI를 복사하여 Google Cloud Console에 등록하세요:', uri);
+  }
+}
+
+function toggleGdriveOAuthSettings() {
+  const el = document.getElementById('gdriveOAuthSettingsBox');
+  if (el) el.classList.toggle('hidden');
+}
+
+function toggleGdriveOAuthHelp() {
+  const el = document.getElementById('gdriveOAuthSettingsBox');
+  if (el) el.classList.remove('hidden');
+}
+
+function toggleGdriveSaSection() {
+  const el = document.getElementById('gdriveSaSectionBox');
+  const arrow = document.getElementById('gdriveSaArrow');
+  if (el) {
+    el.classList.toggle('hidden');
+    if (arrow) arrow.textContent = el.classList.contains('hidden') ? '▼' : '▲';
+  }
+}
+
+async function disconnectGdrive() {
+  if (!confirm('현재 구글 드라이브 연동을 해제하시겠습니까?\n\n※ 로컬 가계부 데이터 및 이미 드라이브에 저장된 백업 파일은 삭제되지 않습니다.')) {
+    return;
+  }
+  try {
+    const res = await fetch('/api/gdrive/disconnect', { method: 'POST' });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.detail || '연동 해제 실패');
+    alert(result.message || 'Google Drive 연동이 해제되었습니다.');
+    loadGdriveStatus();
+    loadGdriveBackupsList();
+  } catch (err) {
+    alert('연동 해제 실패: ' + err.message);
+  }
+}
+
+async function saveGdriveFolderId() {
+  const input = document.getElementById('gdriveFolderIdInput');
+  const val = input ? input.value.trim() : '';
+  try {
+    const res = await fetch('/api/gdrive/folder-id', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder_id: val })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.detail || '폴더 ID 저장 실패');
+    alert(result.message || '폴더 ID가 저장되었습니다.');
+    loadGdriveStatus();
+  } catch (err) {
+    alert('폴더 ID 저장 실패: ' + err.message);
   }
 }
 
@@ -1218,19 +1383,18 @@ async function handleGdriveCredsUpload(e) {
     const result = await res.json();
     if (!res.ok) throw new Error(result.detail || '키 등록 실패');
 
-    alert('서비스 계정 키가 등록되었습니다!\n' + (result.test_result?.message || '연동 성공'));
+    alert(result.message || '인증 파일이 등록되었습니다!');
     loadGdriveStatus();
     loadGdriveBackupsList();
   } catch (err) {
-    alert('인증 키 등록 실패: ' + err.message);
+    alert('인증 키 등록 실패:\n' + err.message);
   } finally {
     e.target.value = '';
   }
 }
 
 function toggleGdriveHelp() {
-  const el = document.getElementById('gdriveHelpBox');
-  if (el) el.classList.toggle('hidden');
+  toggleGdriveOAuthHelp();
 }
 
 async function loadGdriveBackupsList() {
@@ -1256,9 +1420,14 @@ async function loadGdriveBackupsList() {
             <span class="font-bold text-slate-800 block truncate text-xs">${escapeHtml(b.name)}</span>
             <span class="text-[10px] text-slate-500">${dateStr} (${sizeKb} KB)</span>
           </div>
-          <button type="button" onclick="restoreFromGdrive('${b.id}', '${escapeHtml(b.name)}')" class="btn-pastel btn-ghost btn-sm text-indigo-700 border-indigo-200 hover:bg-indigo-100 font-bold py-1 px-2.5 text-[11px]">
-            복구
-          </button>
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <button type="button" onclick="restoreFromGdrive('${b.id}', '${escapeHtml(b.name)}')" class="btn-pastel btn-ghost btn-sm text-indigo-700 border-indigo-200 hover:bg-indigo-100 font-bold py-1 px-2 text-[11px]">
+              복구
+            </button>
+            <button type="button" onclick="deleteFromGdrive('${b.id}', '${escapeHtml(b.name)}')" class="btn-pastel btn-ghost btn-sm text-rose-600 border-rose-200 hover:bg-rose-50 font-bold py-1 px-1.5 text-[11px]" title="삭제">
+              🗑️
+            </button>
+          </div>
         </div>
       `;
     }).join('');
@@ -1282,6 +1451,23 @@ async function restoreFromGdrive(fileId, fileName) {
     window.location.reload();
   } catch (err) {
     alert('복원 실패: ' + err.message);
+  }
+}
+
+async function deleteFromGdrive(fileId, fileName) {
+  if (!confirm(`'${fileName}' 백업 파일을 구글 드라이브에서 삭제하시겠습니까?`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/gdrive/backups/${fileId}`, { method: 'DELETE' });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.detail || '삭제 실패');
+
+    alert(result.message || '백업 파일이 성공적으로 삭제되었습니다.');
+    loadGdriveBackupsList();
+  } catch (err) {
+    alert('삭제 실패: ' + err.message);
   }
 }
 
