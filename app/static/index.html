@@ -51,6 +51,13 @@
         </svg>
       </button>
 
+      <!-- Card Statement Import Button -->
+      <button onclick="openCardUploadModal()" class="header-action-btn" title="삼성·신한·현대 카드 청구서 가져오기 및 데이터화">
+        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+        </svg>
+      </button>
+
       <!-- Backup / Export Button -->
       <button onclick="openBackupModal()" class="header-action-btn" title="스프레드시트 엑셀 및 데이터 백업">
         <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,6 +71,9 @@
   <nav class="hidden md:flex items-center justify-start gap-1.5 px-6 py-2.5 overflow-x-auto border-b border-white/60 bg-white/40">
     <button onclick="switchTab('today')" id="tab-btn-today" class="category-chip active font-bold">
       ⚡ 오늘 빠른등록
+    </button>
+    <button onclick="switchTab('spending')" id="tab-btn-spending" class="category-chip font-bold">
+      📈 소비 분석
     </button>
     <button onclick="switchTab('annual')" id="tab-btn-annual" class="category-chip font-bold">
       📊 연간 대시보드
@@ -244,7 +254,13 @@
       <!-- Month Header & Summary Actions -->
       <div class="flex items-center justify-between flex-wrap gap-2">
         <h2 id="monthDetailTitle" class="text-xl sm:text-2xl font-black text-slate-900">2026년 9월 상세 가계부</h2>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="openCardUploadModal()" class="btn-pastel bg-blue-100 text-blue-900 hover:bg-blue-200 border border-blue-300 btn-sm font-bold flex items-center gap-1 shadow-xs" title="삼성·신한·현대 카드 청구서 엑셀 가져오기">
+            💳 카드명세서 가져오기
+          </button>
+          <button onclick="switchTab('spending')" class="btn-pastel bg-purple-100 text-purple-900 hover:bg-purple-200 border border-purple-300 btn-sm font-bold flex items-center gap-1 shadow-xs" title="당월 소비 패턴 심층 분석">
+            📈 소비 패턴 분석
+          </button>
           <button onclick="saveCurrentMonthFixedPlans(false)" class="btn-pastel btn-primary btn-sm font-bold">
             💾 월별 고정계획 저장
           </button>
@@ -502,6 +518,181 @@
         </div>
       </div>
     </div>
+
+    <!-- ====================================================================
+         SECTION 4: MONTHLY SPENDING PATTERNS VIEW (소비 분석 패턴)
+         ==================================================================== -->
+    <div id="view-spending" class="space-y-5 sm:space-y-6 hidden">
+      <!-- Title & Action Bar -->
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-rose-600">Smart Spending Intelligence</span>
+          <h2 id="spendingTitle" class="text-xl sm:text-2xl font-black text-slate-900">2026년 10월 소비 분석 리포트</h2>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="openCardUploadModal()" class="btn-pastel bg-blue-100 text-blue-900 hover:bg-blue-200 border border-blue-300 btn-sm font-bold flex items-center gap-1.5 shadow-xs">
+            <svg class="w-4 h-4 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+            💳 카드 청구서 가져오기
+          </button>
+          <button onclick="loadSpendingPatterns()" class="p-2 rounded-xl bg-white/80 hover:bg-white text-slate-700 transition shadow-sm border border-slate-200" title="새로고침">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- AI-Style Smart Insight Banner -->
+      <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-100/90 via-pink-50/90 to-indigo-50/90 border border-purple-200 shadow-sm flex items-start gap-3">
+        <div class="p-2.5 rounded-xl bg-white/90 text-purple-700 shadow-xs flex-shrink-0">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        </div>
+        <div>
+          <h4 class="text-xs sm:text-sm font-extrabold text-purple-950 uppercase tracking-wide mb-1 flex items-center gap-1.5">
+            <span>💡 소비 패턴 핵심 브리핑</span>
+            <span class="text-[10px] bg-purple-200/80 text-purple-800 px-2 py-0.5 rounded-full font-bold">자동 분석</span>
+          </h4>
+          <p id="spendingInsightText" class="text-xs sm:text-sm text-slate-800 font-medium leading-relaxed">
+            데이터를 분석 중입니다...
+          </p>
+        </div>
+      </div>
+
+      <!-- 1) KPI Cards Grid (도표) -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div class="glass-panel p-4 text-center border-rose-300">
+          <span class="text-xs font-bold text-slate-500 block mb-0.5">당월 총 소비액 (변동지출)</span>
+          <span id="spendKpiTotal" class="text-lg sm:text-2xl font-black text-rose-600">0원</span>
+          <span id="spendKpiMoM" class="text-[11px] font-bold block mt-1 text-slate-500">-</span>
+        </div>
+        <div class="glass-panel p-4 text-center border-blue-300">
+          <span class="text-xs font-bold text-slate-500 block mb-0.5">일평균 소비액</span>
+          <span id="spendKpiDailyAvg" class="text-lg sm:text-2xl font-black text-blue-700">0원</span>
+          <span class="text-[11px] font-bold text-slate-500 block mt-1" id="spendKpiDays">31일 기준</span>
+        </div>
+        <div class="glass-panel p-4 text-center border-indigo-300">
+          <span class="text-xs font-bold text-slate-500 block mb-0.5">총 결제 건수 / 건당 평균</span>
+          <span id="spendKpiTxCount" class="text-lg sm:text-2xl font-black text-indigo-700">0건</span>
+          <span class="text-[11px] font-bold text-slate-600 block mt-1" id="spendKpiAvgTx">건당 0원</span>
+        </div>
+        <div class="glass-panel p-4 text-center border-emerald-300">
+          <span class="text-xs font-bold text-slate-500 block mb-0.5">무지출 데이 / 최대 소비일</span>
+          <span id="spendKpiNoSpend" class="text-lg sm:text-2xl font-black text-emerald-700">0일</span>
+          <span class="text-[11px] font-bold text-slate-600 block mt-1" id="spendKpiPeakDay">최대: -</span>
+        </div>
+      </div>
+
+      <!-- 2) Interactive Visual Graphs Grid (Chart.js) -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
+        <!-- Chart 1: Category Donut Chart -->
+        <div class="glass-panel p-4 sm:p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+              <span>🍩 카테고리별 소비 점유율</span>
+            </h4>
+            <span class="text-xs font-semibold text-slate-500">지출 비중(%)</span>
+          </div>
+          <div class="relative h-64 sm:h-72 flex items-center justify-center">
+            <canvas id="chartCategoryDonut"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Card Issuer / Payment Method Breakdown -->
+        <div class="glass-panel p-4 sm:p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+              <span>💳 카드사 및 결제수단별 지출 비중</span>
+            </h4>
+            <span class="text-xs font-semibold text-slate-500">삼성 / 신한 / 현대 등</span>
+          </div>
+          <div class="relative h-64 sm:h-72 flex items-center justify-center">
+            <canvas id="chartPaymentMethodPie"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 3: Weekly Spending Rhythm -->
+        <div class="glass-panel p-4 sm:p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+              <span>📅 주차별 소비 추이 (1주~5주차)</span>
+            </h4>
+            <span class="text-xs font-semibold text-slate-500">주차별 지출 흐름</span>
+          </div>
+          <div class="relative h-64 sm:h-72">
+            <canvas id="chartWeeklyBar"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 4: Day of Week & Weekday vs Weekend -->
+        <div class="glass-panel p-4 sm:p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+              <span>📊 요일별 소비 및 평일 vs 주말</span>
+            </h4>
+            <div id="weekdayWeekendBadge" class="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+              평일 vs 주말
+            </div>
+          </div>
+          <div class="relative h-64 sm:h-72">
+            <canvas id="chartDayOfWeekBar"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3) Detailed Data Grids (도표/그리드) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
+        <!-- Grid 1: Category Comparison & MoM Grid (7 cols) -->
+        <div class="lg:col-span-7 glass-panel p-4 sm:p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+              <span>📋 카테고리별 소비 패턴 & 전월 대비 증감</span>
+            </h4>
+            <span class="text-xs font-semibold text-slate-500">MoM 비교 그리드</span>
+          </div>
+          <div class="overflow-x-auto max-h-[450px]">
+            <table class="spreadsheet-table w-full text-xs">
+              <thead>
+                <tr>
+                  <th>카테고리</th>
+                  <th class="text-right">당월 지출(원)</th>
+                  <th class="text-right">비중</th>
+                  <th class="text-right">전월 지출(원)</th>
+                  <th class="text-right">전월 대비 증감</th>
+                  <th class="text-right">건수</th>
+                </tr>
+              </thead>
+              <tbody id="spendCategoryTableBody">
+                <!-- Injected by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Grid 2: Top 10 Merchants Ranking (5 cols) -->
+        <div class="lg:col-span-5 glass-panel p-4 sm:p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+              <span>🏆 Top 10 최대 지출처 (가맹점 랭킹)</span>
+            </h4>
+            <span class="text-xs font-semibold text-slate-500">최다 소비처</span>
+          </div>
+          <div class="overflow-x-auto max-h-[450px]">
+            <table class="spreadsheet-table w-full text-xs">
+              <thead>
+                <tr>
+                  <th class="w-12 text-center">순위</th>
+                  <th>가맹점 (사용처)</th>
+                  <th class="text-right">지출액(원)</th>
+                  <th class="text-right">비중</th>
+                  <th class="text-center">건수</th>
+                </tr>
+              </thead>
+              <tbody id="spendTopMerchantsBody">
+                <!-- Injected by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <!-- ====================================================================
@@ -573,6 +764,20 @@
           <input type="file" id="excelFileInput" accept=".xlsx" class="hidden" onchange="handleExcelUpload(event)">
           <button onclick="document.getElementById('excelFileInput').click()" class="btn-pastel btn-ghost btn-sm w-full border-blue-300 text-blue-800 font-bold">
             엑셀(.xlsx) 파일 선택 및 복원
+          </button>
+        </div>
+
+        <!-- 2-1. Card Statement Import -->
+        <div class="p-3.5 rounded-xl bg-indigo-50/90 border border-indigo-200">
+          <div class="flex items-center justify-between mb-1">
+            <h4 class="font-extrabold text-indigo-900 flex items-center gap-1.5">
+              <span>💳 카드 청구서 내역 데이터화</span>
+              <span class="text-[10px] bg-indigo-200/80 text-indigo-800 px-2 py-0.5 rounded-full font-bold">삼성·신한·현대</span>
+            </h4>
+          </div>
+          <p class="text-indigo-700 mb-2.5 text-xs">카드사 청구내역 엑셀/명세서를 업로드하여 수기 내역과 비교·병합합니다.</p>
+          <button onclick="closeBackupModal(); openCardUploadModal();" class="btn-pastel btn-primary btn-sm w-full font-bold">
+            카드 청구서 업로드 및 중복 검사
           </button>
         </div>
 
@@ -719,6 +924,141 @@
     </div>
   </div>
 
+  <!-- Modal 5: Card Statement Upload & Deduplication Modal -->
+  <div id="modalCardUpload" class="modal-backdrop hidden" onclick="closeCardUploadModal(event)">
+    <div class="modal-content max-w-4xl p-5 sm:p-7" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-200">
+        <div>
+          <h3 class="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
+            <span>💳 카드 청구서 내역 데이터화</span>
+            <span class="text-xs font-bold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full">삼성 · 신한 · 현대</span>
+          </h3>
+          <p class="text-xs text-slate-500 mt-0.5">카드사 엑셀/명세서 파일을 업로드하면 자동 분류 및 수기 내역 중복 검증을 수행합니다.</p>
+        </div>
+        <button onclick="closeCardUploadModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold p-1">✕</button>
+      </div>
+
+      <!-- Step 1: File Upload Screen (Default) -->
+      <div id="cardUploadStep1" class="space-y-4">
+        <div class="p-6 sm:p-8 rounded-2xl border-2 border-dashed border-blue-300 bg-blue-50/50 hover:bg-blue-50 transition text-center cursor-pointer" onclick="document.getElementById('cardStatementFileInput').click()">
+          <input type="file" id="cardStatementFileInput" accept=".xlsx,.xls" class="hidden" onchange="onCardFileSelected(event)">
+          <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center shadow-xs">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+          </div>
+          <h4 class="text-base font-extrabold text-slate-900 mb-1" id="cardUploadFileNamePrompt">
+            카드사 청구내역 엑셀 파일(.xlsx, .xls)을 선택하거나 드래그하세요
+          </h4>
+          <p class="text-xs text-slate-600 mb-3">
+            지원 카드사: <strong>삼성카드(.xlsx)</strong>, <strong>신한카드(.xls)</strong>, <strong>현대카드(.xls)</strong>
+          </p>
+          <span class="btn-pastel btn-primary btn-sm inline-flex items-center gap-1.5 font-bold shadow-xs">
+            📄 파일 선택하기
+          </span>
+        </div>
+
+        <!-- Target Month Selection & Submit -->
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between flex-wrap gap-2 text-xs">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-slate-700">반영 대상 청구월:</span>
+            <select id="cardTargetYear" class="glass-input text-xs py-1 px-2 rounded-lg font-bold">
+              <option value="2026" selected>2026년</option>
+              <option value="2027">2027년</option>
+              <option value="2028">2028년</option>
+            </select>
+            <select id="cardTargetMonth" class="glass-input text-xs py-1 px-2 rounded-lg font-bold">
+              <!-- Injected by JS 1~12월 -->
+            </select>
+          </div>
+          <span class="text-slate-500 text-[11px]">※ 파일 내 청구월을 자동 감지하며, 필요 시 위 대상월로 적용됩니다.</span>
+        </div>
+
+        <button type="button" id="btnAnalyzeCardFile" onclick="analyzeCardFile()" class="btn-pastel btn-primary w-full py-3 font-extrabold shadow-sm flex items-center justify-center gap-2 text-sm opacity-50 cursor-not-allowed" disabled>
+          <span>🔍 청구내역 분석 및 중복 검사 시작</span>
+        </button>
+      </div>
+
+      <!-- Step 2: Preview & Deduplication Review Screen (Hidden until file parsed) -->
+      <div id="cardUploadStep2" class="space-y-4 hidden">
+        <!-- Overview Header -->
+        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between flex-wrap gap-3">
+          <div class="flex items-center gap-2.5">
+            <span id="cardPreviewIssuerBadge" class="px-3 py-1 rounded-full text-xs font-black bg-blue-600 text-white shadow-xs">
+              삼성카드
+            </span>
+            <div>
+              <div class="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                <span id="cardPreviewMonthText">2026년 10월 청구내역</span>
+                <span class="text-xs font-bold text-slate-500" id="cardPreviewCountText">(총 126건)</span>
+              </div>
+              <div class="text-xs font-extrabold text-rose-600 mt-0.5" id="cardPreviewTotalAmtText">
+                청구 총액: 8,397,217원
+              </div>
+            </div>
+          </div>
+
+          <!-- Batch Action Buttons for Duplicates -->
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-xs font-bold text-slate-600 mr-1">중복 일괄 설정:</span>
+            <button type="button" onclick="setAllDuplicateActions('skip')" class="btn-pastel bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 text-xs py-1 px-2.5 rounded-lg font-bold" title="중복 의심 항목은 건너뜁니다">
+              건너뛰기
+            </button>
+            <button type="button" onclick="setAllDuplicateActions('merge')" class="btn-pastel bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-300 text-xs py-1 px-2.5 rounded-lg font-bold" title="기존 수기 내역에 카드 승인 정보를 병합합니다">
+              덮어쓰기/병합
+            </button>
+            <button type="button" onclick="setAllDuplicateActions('add_new')" class="btn-pastel bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 text-xs py-1 px-2.5 rounded-lg font-bold" title="모두 새 항목으로 추가합니다">
+              모두 추가
+            </button>
+          </div>
+        </div>
+
+        <!-- Duplicate Alert Banner (if any duplicates found) -->
+        <div id="cardDuplicateAlertBanner" class="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between text-xs font-medium text-amber-900 hidden">
+          <div class="flex items-center gap-2">
+            <span class="text-base">⚠️</span>
+            <span id="cardDuplicateAlertText">기존 수기 내역과 일자·금액이 겹치는 중복 의심 항목 2건이 발견되었습니다.</span>
+          </div>
+          <span class="text-[11px] font-bold text-amber-700">항목별 처리 방식을 확인하세요</span>
+        </div>
+
+        <!-- Interactive Items Grid -->
+        <div class="overflow-x-auto max-h-[380px] border border-slate-200 rounded-xl bg-white shadow-inner">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-slate-100/90 sticky top-0 z-10 text-slate-700 font-extrabold border-b border-slate-200">
+              <tr>
+                <th class="py-2.5 px-3">상태</th>
+                <th class="py-2.5 px-2">처리 방식</th>
+                <th class="py-2.5 px-2">일자</th>
+                <th class="py-2.5 px-3">가맹점 (사용처)</th>
+                <th class="py-2.5 px-3">카테고리 분류</th>
+                <th class="py-2.5 px-3 text-right">금액(원)</th>
+                <th class="py-2.5 px-2">결제수단</th>
+                <th class="py-2.5 px-3">비고 / 중복 안내</th>
+              </tr>
+            </thead>
+            <tbody id="cardPreviewTableBody" class="divide-y divide-slate-100 font-medium text-slate-800">
+              <!-- Injected by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Summary & Commit Buttons -->
+        <div class="flex items-center justify-between pt-2 border-t border-slate-200">
+          <button type="button" onclick="resetCardUploadStep()" class="btn-pastel btn-ghost py-2.5 px-4 font-bold text-xs">
+            ← 다른 파일 선택
+          </button>
+          <div class="flex items-center gap-2">
+            <span id="cardImportSelectedSummary" class="text-xs font-bold text-slate-600">
+              반영 예정: 0건
+            </span>
+            <button type="button" id="btnConfirmCardImport" onclick="confirmCardImport()" class="btn-pastel btn-primary py-2.5 px-5 font-black text-sm shadow-sm flex items-center gap-1.5">
+              <span>✨ 가계부에 최종 반영하기</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Mobile Bottom Navigation Bar (Visible on mobile screens) -->
   <nav class="bottom-nav md:hidden">
     <div onclick="switchTab('today')" id="mobile-nav-today" class="bottom-nav-item active">
@@ -728,6 +1068,10 @@
     <div onclick="switchToCurrentMonth()" id="mobile-nav-month" class="bottom-nav-item">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
       <span>월간내역</span>
+    </div>
+    <div onclick="switchTab('spending')" id="mobile-nav-spending" class="bottom-nav-item">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+      <span>소비분석</span>
     </div>
     <div onclick="switchTab('annual')" id="mobile-nav-annual" class="bottom-nav-item">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>

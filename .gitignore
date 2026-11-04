@@ -57,3 +57,6 @@ data/.oauth_states.json
 data/*.token.json
 exports/*
 !exports/.gitkeep
+
+# Graphify tool outputs
+graphify-out/

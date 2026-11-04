@@ -10,7 +10,7 @@ from app.core.network import print_terminal_qr
 from app.core.backup import perform_daily_backup
 from app.core.scheduler import start_scheduler, stop_scheduler
 from app.database.schema import init_database
-from app.routers import transactions, fixed_plans, analytics, spreadsheet, meta, gdrive
+from app.routers import transactions, fixed_plans, analytics, spreadsheet, meta, gdrive, cards
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -49,6 +49,7 @@ app.include_router(analytics.router)
 app.include_router(spreadsheet.router)
 app.include_router(meta.router)
 app.include_router(gdrive.router)
+app.include_router(cards.router)
 
 # Mount static assets
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

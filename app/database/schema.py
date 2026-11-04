@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS variable_expenses (
     category_id INTEGER NOT NULL REFERENCES categories(id),
     title TEXT NOT NULL,
     payment_method_id INTEGER NOT NULL REFERENCES payment_methods(id),
-    amount INTEGER NOT NULL CHECK (amount >= 0),
+    amount INTEGER NOT NULL,
     memo TEXT DEFAULT '',
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
@@ -94,6 +94,9 @@ DEFAULT_PAYMENTS = [
     ("계좌이체", 1),
     ("현금", 1),
     ("간편결제", 1),
+    ("삼성카드", 1),
+    ("신한카드", 1),
+    ("현대카드", 1),
 ]
 
 # Default templates matching Google Spreadsheet (Default amounts 0 for clean start)
@@ -122,6 +125,28 @@ DEFAULT_SAVINGS_TEMPLATES = [
 
 def init_database():
     with get_db_cursor() as cur:
+        # Check and migrate variable_expenses table if it contains CHECK (amount >= 0)
+        cur.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='variable_expenses'")
+        row = cur.fetchone()
+        if row and row[0] and "CHECK (amount >= 0)" in row[0]:
+            cur.execute("""
+                CREATE TABLE variable_expenses_migrated (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    transaction_date TEXT NOT NULL,
+                    category_id INTEGER NOT NULL REFERENCES categories(id),
+                    title TEXT NOT NULL,
+                    payment_method_id INTEGER NOT NULL REFERENCES payment_methods(id),
+                    amount INTEGER NOT NULL,
+                    memo TEXT DEFAULT '',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+                )
+            """)
+            cur.execute("INSERT INTO variable_expenses_migrated SELECT * FROM variable_expenses")
+            cur.execute("DROP TABLE variable_expenses")
+            cur.execute("ALTER TABLE variable_expenses_migrated RENAME TO variable_expenses")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_var_expenses_date ON variable_expenses(transaction_date)")
+
         cur.executescript(SCHEMA_SQL)
 
         # Seed and sync categories

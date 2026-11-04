@@ -5,16 +5,22 @@
 const STATE = {
   currentYear: 2026,
   currentMonth: new Date().getMonth() + 1,
-  currentTab: 'today', // 'today' | 'annual' | 1..12
+  currentTab: 'today', // 'today' | 'annual' | 'spending' | 1..12
   categories: [],
   paymentMethods: [],
   networkInfo: null,
   trendChart: null,
   donutChart: null,
+  spendingCategoryChart: null,
+  spendingPaymentChart: null,
+  spendingWeeklyChart: null,
+  spendingDayOfWeekChart: null,
   isEditingFixed: { income: false, expense: false, savings: false },
   isEditingVarExpense: false,
   cachedPlans: { incomes: [], expenses: [], savings: [] },
-  cachedVarExpenses: []
+  cachedVarExpenses: [],
+  cardPreviewItems: [],
+  cardUploadFile: null
 };
 
 // --- Initialization ---
@@ -114,7 +120,15 @@ function prevMonth() {
   STATE.currentMonth = m;
   updateHeaderMonthLabel();
   renderMonthTabs();
-  switchTab(m);
+  if (STATE.currentTab === 'spending') {
+    loadSpendingPatterns();
+  } else if (STATE.currentTab === 'annual') {
+    loadAnnualDashboard();
+  } else if (STATE.currentTab === 'today') {
+    loadTodayOverview();
+  } else {
+    switchTab(m);
+  }
 }
 
 function nextMonth() {
@@ -128,7 +142,15 @@ function nextMonth() {
   STATE.currentMonth = m;
   updateHeaderMonthLabel();
   renderMonthTabs();
-  switchTab(m);
+  if (STATE.currentTab === 'spending') {
+    loadSpendingPatterns();
+  } else if (STATE.currentTab === 'annual') {
+    loadAnnualDashboard();
+  } else if (STATE.currentTab === 'today') {
+    loadTodayOverview();
+  } else {
+    switchTab(m);
+  }
 }
 
 // --- Metadata Loading ---
@@ -250,10 +272,12 @@ function switchTab(tab) {
   const viewToday = document.getElementById('view-today');
   const viewMonth = document.getElementById('view-month');
   const viewAnnual = document.getElementById('view-annual');
+  const viewSpending = document.getElementById('view-spending');
 
   viewToday.classList.add('hidden');
   viewMonth.classList.add('hidden');
   viewAnnual.classList.add('hidden');
+  if (viewSpending) viewSpending.classList.add('hidden');
 
   // Clear tab buttons styling
   document.querySelectorAll('.category-chip').forEach(b => b.classList.remove('active'));
@@ -274,6 +298,14 @@ function switchTab(tab) {
     const mb = document.getElementById('mobile-nav-annual');
     if (mb) mb.classList.add('active');
     loadAnnualDashboard();
+  } else if (tab === 'spending') {
+    if (viewSpending) viewSpending.classList.remove('hidden');
+    const b = document.getElementById('tab-btn-spending');
+    if (b) b.classList.add('active');
+    const mb = document.getElementById('mobile-nav-spending');
+    if (mb) mb.classList.add('active');
+    updateHeaderMonthLabel();
+    loadSpendingPatterns();
   } else if (typeof tab === 'number') {
     STATE.currentMonth = tab;
     viewMonth.classList.remove('hidden');
@@ -297,6 +329,8 @@ function onYearChange() {
     loadTodayOverview();
   } else if (STATE.currentTab === 'annual') {
     loadAnnualDashboard();
+  } else if (STATE.currentTab === 'spending') {
+    loadSpendingPatterns();
   } else {
     loadMonthDetail(STATE.currentTab);
   }
@@ -305,6 +339,7 @@ function onYearChange() {
 function refreshData() {
   if (STATE.currentTab === 'today') loadTodayOverview();
   else if (STATE.currentTab === 'annual') loadAnnualDashboard();
+  else if (STATE.currentTab === 'spending') loadSpendingPatterns();
   else loadMonthDetail(STATE.currentTab);
 }
 
@@ -1084,7 +1119,731 @@ function renderDonutChart(catData) {
   });
 }
 
-// --- Settings & Google Drive Cloud Backup Handlers ---
+// ====================================================================
+// SECTION 4: SPENDING PATTERN ANALYTICS & VISUALIZATION
+// ====================================================================
+
+async function loadSpendingPatterns() {
+  const y = STATE.currentYear;
+  const m = STATE.currentMonth;
+
+  const titleEl = document.getElementById('spendingTitle');
+  if (titleEl) titleEl.textContent = `${y}년 ${m}월 소비 분석 리포트`;
+
+  try {
+    const res = await fetch(`/api/analytics/spending-patterns?year=${y}&month=${m}`);
+    if (!res.ok) throw new Error('소비 패턴 분석 데이터를 불러오지 못했습니다.');
+    const data = await res.json();
+
+    // 1) AI/Smart Insight Banner
+    const insightEl = document.getElementById('spendingInsightText');
+    if (insightEl) insightEl.textContent = data.insight_summary || '소비 내역을 분석하여 리포트를 생성했습니다.';
+
+    // 2) Top High-Contrast KPI Cards
+    const spendTotalEl = document.getElementById('spendKpiTotal');
+    if (spendTotalEl) spendTotalEl.textContent = `${formatKRW(data.total_spending)}원`;
+
+    const spendMomEl = document.getElementById('spendKpiMoM');
+    if (spendMomEl) {
+      if (data.spending_diff > 0) {
+        spendMomEl.className = 'text-[11px] font-extrabold block mt-1 text-rose-600';
+        spendMomEl.textContent = `▲ 전월 대비 +${formatKRW(data.spending_diff)}원 (+${data.spending_diff_rate}%)`;
+      } else if (data.spending_diff < 0) {
+        spendMomEl.className = 'text-[11px] font-extrabold block mt-1 text-emerald-600';
+        spendMomEl.textContent = `▼ 전월 대비 ${formatKRW(data.spending_diff)}원 (${data.spending_diff_rate}%)`;
+      } else {
+        spendMomEl.className = 'text-[11px] font-bold block mt-1 text-slate-500';
+        spendMomEl.textContent = `- 전월 대비 변동 없음 (동일)`;
+      }
+    }
+
+    const dailyAvgEl = document.getElementById('spendKpiDailyAvg');
+    if (dailyAvgEl) dailyAvgEl.textContent = `${formatKRW(data.daily_average)}원`;
+
+    const daysEl = document.getElementById('spendKpiDays');
+    if (daysEl) {
+      const daysCount = new Date(y, m, 0).getDate();
+      daysEl.textContent = `${daysCount}일 기준`;
+    }
+
+    const txCountEl = document.getElementById('spendKpiTxCount');
+    if (txCountEl) txCountEl.textContent = `${formatKRW(data.transaction_count)}건`;
+
+    const avgTxEl = document.getElementById('spendKpiAvgTx');
+    if (avgTxEl) avgTxEl.textContent = `건당 ${formatKRW(data.avg_per_transaction)}원`;
+
+    const noSpendEl = document.getElementById('spendKpiNoSpend');
+    if (noSpendEl) noSpendEl.textContent = `${data.no_spend_days}일`;
+
+    const peakDayEl = document.getElementById('spendKpiPeakDay');
+    if (peakDayEl) {
+      if (data.peak_spending_date && data.peak_spending_amount > 0) {
+        const peakFormatted = data.peak_spending_date.length > 5 ? data.peak_spending_date.slice(5) : data.peak_spending_date;
+        peakDayEl.textContent = `최대: ${peakFormatted} (${formatKRW(data.peak_spending_amount)}원)`;
+      } else {
+        peakDayEl.textContent = '최대: -';
+      }
+    }
+
+    const weekdayWeekendBadge = document.getElementById('weekdayWeekendBadge');
+    if (weekdayWeekendBadge) {
+      weekdayWeekendBadge.textContent = `평일 ${formatKRW(data.weekday_spending)}원 vs 주말 ${formatKRW(data.weekend_spending)}원`;
+    }
+
+    // 3) Visual Charts
+    renderSpendingCategoryChart(data.categories);
+    renderSpendingPaymentChart(data.payment_methods);
+    renderSpendingWeeklyChart(data.weekly);
+    renderSpendingDayOfWeekChart(data.day_of_week);
+
+    // 4) Grids / Tables
+    renderSpendingGrids(data);
+
+  } catch (err) {
+    console.error('Failed to load spending patterns', err);
+    const insightEl = document.getElementById('spendingInsightText');
+    if (insightEl) insightEl.textContent = '소비 패턴 분석 중 오류가 발생했습니다: ' + err.message;
+  }
+}
+
+function renderSpendingCategoryChart(categories) {
+  const ctx = document.getElementById('chartCategoryDonut');
+  if (!ctx) return;
+  if (STATE.spendingCategoryChart) STATE.spendingCategoryChart.destroy();
+
+  const validCats = (categories || []).filter(c => c.amount > 0);
+  if (validCats.length === 0) {
+    STATE.spendingCategoryChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['내역 없음'],
+        datasets: [{ data: [1], backgroundColor: ['#E2E8F0'], borderWidth: 1 }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { family: 'Pretendard', size: 11, weight: 'bold' } } },
+          tooltip: { enabled: false }
+        }
+      }
+    });
+    return;
+  }
+
+  const labels = validCats.map(c => c.name);
+  const data = validCats.map(c => c.amount);
+  const colors = validCats.map(c => c.color_hex || '#94A3B8');
+
+  STATE.spendingCategoryChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: colors,
+        borderWidth: 2,
+        borderColor: '#ffffff',
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: {
+            font: { family: 'Pretendard', size: 11, weight: 'bold' },
+            boxWidth: 12,
+            padding: 10
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const label = ctx.label || '';
+              const val = ctx.raw || 0;
+              const cat = validCats[ctx.dataIndex];
+              const pct = cat ? cat.percentage : 0;
+              return ` ${label}: ${formatKRW(val)}원 (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderSpendingPaymentChart(paymentMethods) {
+  const ctx = document.getElementById('chartPaymentMethodPie');
+  if (!ctx) return;
+  if (STATE.spendingPaymentChart) STATE.spendingPaymentChart.destroy();
+
+  const validPays = (paymentMethods || []).filter(p => p.amount > 0);
+  if (validPays.length === 0) {
+    STATE.spendingPaymentChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['내역 없음'],
+        datasets: [{ data: [1], backgroundColor: ['#E2E8F0'], borderWidth: 1 }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { family: 'Pretendard', size: 11, weight: 'bold' } } },
+          tooltip: { enabled: false }
+        }
+      }
+    });
+    return;
+  }
+
+  const palette = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#64748B', '#F97316', '#6366F1', '#14B8A6'];
+  const labels = validPays.map(p => p.name);
+  const data = validPays.map(p => p.amount);
+  const colors = validPays.map((p, idx) => palette[idx % palette.length]);
+
+  STATE.spendingPaymentChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: colors,
+        borderWidth: 2,
+        borderColor: '#ffffff',
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: {
+            font: { family: 'Pretendard', size: 11, weight: 'bold' },
+            boxWidth: 12,
+            padding: 10
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const label = ctx.label || '';
+              const val = ctx.raw || 0;
+              const pay = validPays[ctx.dataIndex];
+              const pct = pay ? pay.percentage : 0;
+              return ` ${label}: ${formatKRW(val)}원 (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderSpendingWeeklyChart(weeklyRhythm) {
+  const ctx = document.getElementById('chartWeeklyBar');
+  if (!ctx) return;
+  if (STATE.spendingWeeklyChart) STATE.spendingWeeklyChart.destroy();
+
+  const weeks = weeklyRhythm || [];
+  const labels = weeks.map(w => w.week_label);
+  const data = weeks.map(w => w.amount);
+
+  STATE.spendingWeeklyChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: '주차별 소비액',
+        data: data,
+        backgroundColor: '#8B5CF6cc',
+        borderColor: '#7C3AED',
+        borderWidth: 1.5,
+        borderRadius: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` ${ctx.dataset.label}: ${formatKRW(ctx.raw)}원`
+          }
+        }
+      },
+      scales: {
+        y: {
+          ticks: {
+            callback: (v) => v >= 10000 ? (v / 10000) + '만' : v,
+            font: { family: 'Pretendard', size: 11, weight: 'bold' }
+          },
+          grid: { color: 'rgba(203, 213, 225, 0.4)' }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { font: { family: 'Pretendard', size: 11, weight: 'bold' } }
+        }
+      }
+    }
+  });
+}
+
+function renderSpendingDayOfWeekChart(dayOfWeekRhythm) {
+  const ctx = document.getElementById('chartDayOfWeekBar');
+  if (!ctx) return;
+  if (STATE.spendingDayOfWeekChart) STATE.spendingDayOfWeekChart.destroy();
+
+  const days = dayOfWeekRhythm || [];
+  const labels = days.map(d => d.day_name);
+  const data = days.map(d => d.amount);
+  const bgColors = days.map(d => (d.day_name === '토' || d.day_name === '일') ? '#EC4899cc' : '#6366F1cc');
+  const borderColors = days.map(d => (d.day_name === '토' || d.day_name === '일') ? '#DB2777' : '#4F46E5');
+
+  STATE.spendingDayOfWeekChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: '요일별 소비액',
+        data: data,
+        backgroundColor: bgColors,
+        borderColor: borderColors,
+        borderWidth: 1.5,
+        borderRadius: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const d = days[ctx.dataIndex];
+              const kind = (d && (d.day_name === '토' || d.day_name === '일')) ? '주말' : '평일';
+              return ` ${ctx.label}요일 (${kind}): ${formatKRW(ctx.raw)}원 (${d ? d.count : 0}건)`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          ticks: {
+            callback: (v) => v >= 10000 ? (v / 10000) + '만' : v,
+            font: { family: 'Pretendard', size: 11, weight: 'bold' }
+          },
+          grid: { color: 'rgba(203, 213, 225, 0.4)' }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { font: { family: 'Pretendard', size: 11, weight: 'bold' } }
+        }
+      }
+    }
+  });
+}
+
+function renderSpendingGrids(data) {
+  // 1) Category MoM Grid
+  const catTbody = document.getElementById('spendCategoryTableBody');
+  if (catTbody) {
+    if (!data.categories || data.categories.length === 0) {
+      catTbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-400 font-bold">당월 소비 내역이 없습니다.</td></tr>';
+    } else {
+      catTbody.innerHTML = data.categories.map(cat => {
+        let momBadge = '<span class="text-slate-400 font-bold">-</span>';
+        if (cat.diff_amount > 0) {
+          momBadge = `<span class="text-rose-600 font-black">▲ +${formatKRW(cat.diff_amount)}원</span>`;
+        } else if (cat.diff_amount < 0) {
+          momBadge = `<span class="text-emerald-600 font-black">▼ ${formatKRW(cat.diff_amount)}원</span>`;
+        }
+        return `
+          <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+            <td class="font-extrabold text-slate-900 flex items-center gap-2 py-2.5 px-3">
+              <span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: ${cat.color_hex || '#94A3B8'}"></span>
+              <span>${escapeHtml(cat.name)}</span>
+            </td>
+            <td class="text-right font-extrabold text-rose-600 py-2.5 px-3 font-mono">${formatKRW(cat.amount)}</td>
+            <td class="text-right font-bold text-slate-700 py-2.5 px-3">${cat.percentage}%</td>
+            <td class="text-right font-semibold text-slate-500 py-2.5 px-3 font-mono">${formatKRW(cat.prev_amount)}</td>
+            <td class="text-right py-2.5 px-3">${momBadge}</td>
+            <td class="text-right font-bold text-slate-700 py-2.5 px-3">${cat.count}건</td>
+          </tr>
+        `;
+      }).join('');
+    }
+  }
+
+  // 2) Top 10 Merchants Ranking Grid
+  const merchTbody = document.getElementById('spendTopMerchantsBody');
+  if (merchTbody) {
+    if (!data.top_merchants || data.top_merchants.length === 0) {
+      merchTbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-slate-400 font-bold">가맹점 지출 내역이 없습니다.</td></tr>';
+    } else {
+      merchTbody.innerHTML = data.top_merchants.map(m => {
+        let rankBadge = `<span class="w-5 h-5 rounded-full inline-flex items-center justify-center font-black text-slate-600 bg-slate-100 text-[11px]">${m.rank}</span>`;
+        if (m.rank === 1) rankBadge = '<span class="w-5 h-5 rounded-full inline-flex items-center justify-center font-black text-amber-900 bg-amber-200 text-[11px]">1</span>';
+        else if (m.rank === 2) rankBadge = '<span class="w-5 h-5 rounded-full inline-flex items-center justify-center font-black text-slate-800 bg-slate-200 text-[11px]">2</span>';
+        else if (m.rank === 3) rankBadge = '<span class="w-5 h-5 rounded-full inline-flex items-center justify-center font-black text-amber-800 bg-amber-100 text-[11px]">3</span>';
+
+        return `
+          <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+            <td class="text-center py-2.5 px-2">${rankBadge}</td>
+            <td class="font-extrabold text-slate-900 py-2.5 px-3">${escapeHtml(m.merchant)}</td>
+            <td class="text-right font-black text-rose-600 py-2.5 px-3 font-mono">${formatKRW(m.amount)}</td>
+            <td class="text-right font-bold text-slate-700 py-2.5 px-3">${m.percentage}%</td>
+            <td class="text-center font-bold text-slate-600 py-2.5 px-2">${m.count}건</td>
+          </tr>
+        `;
+      }).join('');
+    }
+  }
+}
+
+// ====================================================================
+// SECTION 5: CARD STATEMENT UPLOAD & DEDUPLICATION MODAL HANDLERS
+// ====================================================================
+
+function openCardUploadModal() {
+  const modal = document.getElementById('modalCardUpload');
+  if (!modal) return;
+
+  // Month selector populate
+  const mSelect = document.getElementById('cardTargetMonth');
+  if (mSelect) {
+    mSelect.innerHTML = '';
+    for (let i = 1; i <= 12; i++) {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `${i}월`;
+      if (i === STATE.currentMonth) opt.selected = true;
+      mSelect.appendChild(opt);
+    }
+  }
+
+  const ySelect = document.getElementById('cardTargetYear');
+  if (ySelect) ySelect.value = STATE.currentYear;
+
+  // Reset file input & UI
+  const fileInput = document.getElementById('cardStatementFileInput');
+  if (fileInput) fileInput.value = '';
+  STATE.cardUploadFile = null;
+  STATE.cardPreviewItems = [];
+
+  const promptText = document.getElementById('cardUploadFileNamePrompt');
+  if (promptText) {
+    promptText.textContent = '카드사 청구내역 엑셀 파일(.xlsx, .xls)을 선택하거나 드래그하세요';
+  }
+
+  const analyzeBtn = document.getElementById('btnAnalyzeCardFile');
+  if (analyzeBtn) {
+    analyzeBtn.disabled = true;
+    analyzeBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    analyzeBtn.innerHTML = '<span>🔍 청구내역 분석 및 중복 검사 시작</span>';
+  }
+
+  // Show Step 1, hide Step 2
+  document.getElementById('cardUploadStep1')?.classList.remove('hidden');
+  document.getElementById('cardUploadStep2')?.classList.add('hidden');
+
+  modal.classList.remove('hidden');
+}
+
+function closeCardUploadModal(e) {
+  if (e && e.target && e.target.id !== 'modalCardUpload' && !e.target.closest('button[onclick="closeCardUploadModal()"]')) return;
+  document.getElementById('modalCardUpload')?.classList.add('hidden');
+}
+
+function onCardFileSelected(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  STATE.cardUploadFile = file;
+  const promptText = document.getElementById('cardUploadFileNamePrompt');
+  if (promptText) {
+    const sizeKb = Math.round(file.size / 1024);
+    promptText.innerHTML = `📄 <span class="text-blue-700 font-extrabold">${escapeHtml(file.name)}</span> (${sizeKb} KB)`;
+  }
+
+  const analyzeBtn = document.getElementById('btnAnalyzeCardFile');
+  if (analyzeBtn) {
+    analyzeBtn.disabled = false;
+    analyzeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+  }
+}
+
+function resetCardUploadStep() {
+  document.getElementById('cardUploadStep1')?.classList.remove('hidden');
+  document.getElementById('cardUploadStep2')?.classList.add('hidden');
+}
+
+async function analyzeCardFile() {
+  if (!STATE.cardUploadFile) {
+    alert('업로드할 카드사 청구서 파일을 선택해주세요.');
+    return;
+  }
+
+  const btn = document.getElementById('btnAnalyzeCardFile');
+  btn.disabled = true;
+  btn.innerHTML = '<span>⏳ 청구내역 분석 및 중복 대조 중...</span>';
+
+  try {
+    const formData = new FormData();
+    formData.append('file', STATE.cardUploadFile);
+    formData.append('target_year', document.getElementById('cardTargetYear').value);
+    formData.append('target_month', document.getElementById('cardTargetMonth').value);
+
+    const res = await fetch('/api/cards/preview', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || '파일 분석에 실패했습니다.');
+
+    // Save to state
+    STATE.cardPreviewItems = data.items;
+
+    // Header info
+    const badge = document.getElementById('cardPreviewIssuerBadge');
+    if (badge) {
+      const issuerLabel = data.issuer_name || data.issuer;
+      badge.textContent = issuerLabel;
+      if (issuerLabel.includes('삼성')) {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-black bg-blue-600 text-white shadow-xs';
+      } else if (issuerLabel.includes('신한')) {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-black bg-indigo-600 text-white shadow-xs';
+      } else if (issuerLabel.includes('현대')) {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-black bg-slate-900 text-white shadow-xs';
+      } else {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-black bg-purple-600 text-white shadow-xs';
+      }
+    }
+
+    const monthDisplay = data.statement_month ? `${data.statement_month} 청구내역` : `${document.getElementById('cardTargetYear').value}년 ${document.getElementById('cardTargetMonth').value}월 청구내역`;
+    document.getElementById('cardPreviewMonthText').textContent = monthDisplay;
+    document.getElementById('cardPreviewCountText').textContent = `(총 ${data.total_count}건)`;
+    document.getElementById('cardPreviewTotalAmtText').textContent = `청구 총액: ${formatKRW(data.total_amount)}원`;
+
+    // Duplicate alert banner
+    const alertBanner = document.getElementById('cardDuplicateAlertBanner');
+    const alertText = document.getElementById('cardDuplicateAlertText');
+    if (data.duplicate_count > 0) {
+      alertText.textContent = `기존 수기 내역과 일자·금액이 일치하는 중복 의심 항목 ${data.duplicate_count}건이 발견되었습니다.`;
+      alertBanner.classList.remove('hidden');
+    } else {
+      alertBanner.classList.add('hidden');
+    }
+
+    // Render Preview Table
+    renderCardPreviewTable();
+
+    // Switch view to step 2
+    document.getElementById('cardUploadStep1').classList.add('hidden');
+    document.getElementById('cardUploadStep2').classList.remove('hidden');
+
+    updateCardImportSummary();
+  } catch (err) {
+    alert('청구서 분석 오류: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span>🔍 청구내역 분석 및 중복 검사 시작</span>';
+  }
+}
+
+function renderCardPreviewTable() {
+  const tbody = document.getElementById('cardPreviewTableBody');
+  if (!tbody) return;
+
+  if (!STATE.cardPreviewItems || STATE.cardPreviewItems.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-slate-400 font-bold">인식된 청구 내역이 없습니다.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = STATE.cardPreviewItems.map((item, idx) => {
+    const isDup = item.is_duplicate;
+    const isSkip = item.action === 'skip';
+
+    // Status badge
+    let statusBadge = isDup 
+      ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300 whitespace-nowrap">⚠️ 중복의심</span>'
+      : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 whitespace-nowrap">신규</span>';
+
+    // Action select options
+    let actionSelect = `
+      <select class="glass-input text-xs py-1 px-1.5 font-bold ${isSkip ? 'text-slate-400 bg-slate-100' : 'text-slate-800'}" onchange="onCardItemActionChange(${idx}, this.value)">
+        <option value="add_new" ${item.action === 'add_new' ? 'selected' : ''}>➕ 추가</option>
+        <option value="merge" ${item.action === 'merge' ? 'selected' : ''} ${!item.existing_expense_id ? 'disabled' : ''}>🔄 덮어쓰기</option>
+        <option value="skip" ${item.action === 'skip' ? 'selected' : ''}>⏭️ 건너뛰기</option>
+      </select>
+    `;
+
+    // Category options
+    let catSelect = `
+      <select class="glass-input text-xs py-1 px-1.5 font-bold" onchange="onCardItemFieldChange(${idx}, 'category_id', Number(this.value))">
+        ${STATE.categories.map(c => `
+          <option value="${c.id}" ${c.id === item.category_id ? 'selected' : ''}>${escapeHtml(c.name)}</option>
+        `).join('')}
+      </select>
+    `;
+
+    const rowBgClass = isSkip ? 'bg-slate-50 opacity-60' : (isDup ? 'bg-amber-50/40' : 'hover:bg-slate-50/70');
+    const amtColorClass = item.amount < 0 ? 'text-pink-600 font-black' : 'text-slate-900 font-black';
+
+    return `
+      <tr class="${rowBgClass} transition border-b border-slate-100" id="card-row-${idx}">
+        <td class="py-2 px-3">${statusBadge}</td>
+        <td class="py-2 px-2">${actionSelect}</td>
+        <td class="py-2 px-2 font-mono text-[11px] font-bold text-slate-600 whitespace-nowrap">${item.transaction_date}</td>
+        <td class="py-2 px-3 font-extrabold text-slate-900 max-w-[150px] truncate" title="${escapeHtml(item.title)}">
+          <input type="text" class="glass-input text-xs py-1 px-1.5 w-full font-bold" value="${escapeHtml(item.title)}" onchange="onCardItemFieldChange(${idx}, 'title', this.value)">
+        </td>
+        <td class="py-2 px-3">${catSelect}</td>
+        <td class="py-2 px-3 text-right ${amtColorClass} font-mono whitespace-nowrap">${formatKRW(item.amount)}원</td>
+        <td class="py-2 px-2 text-slate-700 font-bold whitespace-nowrap">${escapeHtml(item.payment_method_name)}</td>
+        <td class="py-2 px-3 text-slate-500 text-[11px] max-w-[200px] truncate" title="${escapeHtml((item.memo || '') + (item.duplicate_reason ? ' | ' + item.duplicate_reason : ''))}">
+          ${item.duplicate_reason ? `<span class="text-amber-800 font-bold block">${escapeHtml(item.duplicate_reason)}</span>` : ''}
+          <span class="text-slate-500">${escapeHtml(item.memo || '-')}</span>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function onCardItemActionChange(idx, action) {
+  if (!STATE.cardPreviewItems[idx]) return;
+  STATE.cardPreviewItems[idx].action = action;
+  const row = document.getElementById(`card-row-${idx}`);
+  if (row) {
+    if (action === 'skip') {
+      row.className = 'bg-slate-50 opacity-60 transition border-b border-slate-100';
+    } else if (STATE.cardPreviewItems[idx].is_duplicate) {
+      row.className = 'bg-amber-50/40 transition border-b border-slate-100';
+    } else {
+      row.className = 'hover:bg-slate-50/70 transition border-b border-slate-100';
+    }
+  }
+  updateCardImportSummary();
+}
+
+function onCardItemFieldChange(idx, field, value) {
+  if (!STATE.cardPreviewItems[idx]) return;
+  STATE.cardPreviewItems[idx][field] = value;
+}
+
+function setAllDuplicateActions(action) {
+  let count = 0;
+  STATE.cardPreviewItems.forEach((item) => {
+    if (item.is_duplicate) {
+      item.action = action;
+      count++;
+    }
+  });
+  if (count === 0) {
+    alert('중복 의심 항목이 없습니다.');
+    return;
+  }
+  renderCardPreviewTable();
+  updateCardImportSummary();
+}
+
+function updateCardImportSummary() {
+  let addCount = 0;
+  let mergeCount = 0;
+  let skipCount = 0;
+
+  STATE.cardPreviewItems.forEach(item => {
+    if (item.action === 'add_new') addCount++;
+    else if (item.action === 'merge') mergeCount++;
+    else if (item.action === 'skip') skipCount++;
+  });
+
+  const totalImport = addCount + mergeCount;
+  const summaryEl = document.getElementById('cardImportSelectedSummary');
+  if (summaryEl) {
+    summaryEl.innerHTML = `신규 추가: <span class="text-emerald-700 font-black">${addCount}건</span>, 병합/수정: <span class="text-amber-800 font-black">${mergeCount}건</span>, 제외: <span class="text-slate-500 font-bold">${skipCount}건</span> (총 <span class="text-blue-700 font-black">${totalImport}건</span> 반영)`;
+  }
+
+  const confirmBtn = document.getElementById('btnConfirmCardImport');
+  if (confirmBtn) {
+    if (totalImport === 0) {
+      confirmBtn.disabled = true;
+      confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    } else {
+      confirmBtn.disabled = false;
+      confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+  }
+}
+
+async function confirmCardImport() {
+  const itemsToConfirm = STATE.cardPreviewItems.filter(item => item.action !== 'skip');
+  if (itemsToConfirm.length === 0) {
+    alert('가계부에 반영할 항목이 없습니다. (모두 건너뛰기 됨)');
+    return;
+  }
+
+  const confirmBtn = document.getElementById('btnConfirmCardImport');
+  confirmBtn.disabled = true;
+  confirmBtn.innerHTML = '<span>⏳ 가계부 반영 중...</span>';
+
+  try {
+    const payload = {
+      items: itemsToConfirm.map(item => ({
+        transaction_date: item.transaction_date,
+        title: item.title,
+        amount: item.amount,
+        category_id: item.category_id,
+        payment_method_id: item.payment_method_id,
+        memo: item.memo || '',
+        action: item.action,
+        existing_expense_id: item.existing_expense_id || null
+      }))
+    };
+
+    const res = await fetch('/api/cards/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.detail || '가계부 반영에 실패했습니다.');
+
+    alert(`🎉 카드 청구내역이 가계부에 성공적으로 반영되었습니다!\n\n• 신규 추가: ${result.added}건\n• 기존내역 병합/수정: ${result.merged}건\n• 건너뜀: ${result.skipped}건`);
+
+    closeCardUploadModal();
+
+    // Set month and switch view
+    const targetY = Number(document.getElementById('cardTargetYear').value);
+    const targetM = Number(document.getElementById('cardTargetMonth').value);
+    STATE.currentYear = targetY;
+    STATE.currentMonth = targetM;
+    updateHeaderMonthLabel();
+    renderMonthTabs();
+
+    if (STATE.currentTab === 'spending') {
+      await loadSpendingPatterns();
+    } else {
+      switchTab(STATE.currentMonth);
+    }
+  } catch (err) {
+    alert('가계부 반영 실패: ' + err.message);
+  } finally {
+    confirmBtn.disabled = false;
+    confirmBtn.innerHTML = '<span>✨ 가계부에 최종 반영하기</span>';
+  }
+}
 function openSettingsModal() {
   const modal = document.getElementById('modalSettings');
   const img = document.getElementById('modalQRImage');

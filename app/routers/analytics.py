@@ -1,10 +1,11 @@
-from typing import List, Dict, Any
-from fastapi import APIRouter
-from app.models.schemas import MonthlySummaryResponse, AnnualDashboardResponse
+from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, Query
+from app.models.schemas import MonthlySummaryResponse, AnnualDashboardResponse, SpendingPatternsResponse
 from app.services.analytics_service import (
     get_monthly_summary,
     get_annual_dashboard,
-    get_category_breakdown
+    get_category_breakdown,
+    get_spending_pattern_analytics,
 )
 
 router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
@@ -20,3 +21,15 @@ def read_annual_dashboard(year: int):
 @router.get("/categories/{year}/{month}", response_model=List[Dict[str, Any]])
 def read_category_breakdown(year: int, month: int):
     return get_category_breakdown(year, month)
+
+@router.get("/spending-patterns", response_model=SpendingPatternsResponse)
+def read_spending_patterns(
+    year: int = Query(..., description="연도"),
+    month: int = Query(..., ge=1, le=12, description="월")
+):
+    return get_spending_pattern_analytics(year, month)
+
+@router.get("/spending-patterns/{year}/{month}", response_model=SpendingPatternsResponse)
+def read_spending_patterns_path(year: int, month: int):
+    return get_spending_pattern_analytics(year, month)
+
