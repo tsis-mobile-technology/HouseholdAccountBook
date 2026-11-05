@@ -1,0 +1,329 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"xml:lang="ko" lang="ko">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Untitled Document</title>
+<style type="text/css">
+    td, th {font-size:12px;padding: 5px 10px;}
+</style>
+</head>
+<body>
+
+    
+        <table cellspacing="0" cellpadding="0" border="1">
+            <tr>
+                <th colspan="10" bgcolor="#f2f2f2">2026년 01월 이용대금명세서</th>
+            </tr>
+            <tr>
+                <th colspan="10" align="left">결제 상세내역</th>
+            </tr>
+            <tr>
+                <th bgcolor="#f2f2f2">이용일</th>
+                <th bgcolor="#f2f2f2">이용카드</th>
+                <th bgcolor="#f2f2f2">이용가맹점</th>
+                <th bgcolor="#f2f2f2">이용금액</th>
+                <th bgcolor="#f2f2f2">할부/회차</th>
+                <th bgcolor="#f2f2f2">적립/할인율(%)</th>
+                <th bgcolor="#f2f2f2">예상적립/할인</th>
+                <th bgcolor="#f2f2f2">결제원금</th>
+                <th bgcolor="#f2f2f2">결제후잔액</th>
+                <th bgcolor="#f2f2f2">수수료(이자)</th>
+            </tr>
+            
+            
+                
+                
+                    
+                    
+                        <tr>
+                            <td align="center">2025년 12월 08일</td>
+                            <td>본인 ZERO MOBILE 포인트형</td>
+                            <td>남시약국</td   >
+                            <td align="right">29,800</td>
+                            <td align="center" style='mso-number-format:"\@";'>
+                                
+                            </td>
+                            
+                                
+                                <td align="center" style='mso-number-format:"\@";'>
+                                    1.0%
+                                </td>
+                                
+                                
+                            
+                            <td align="right">290</td>
+                            <td align="right">29,800</td>
+                            <td align="right">0</td>
+                            <td align="right">0</td>
+                        </tr>
+                    
+                
+            
+                
+                
+                    
+                    
+                        <tr>
+                            <td align="center">2025년 12월 09일</td>
+                            <td>본인 ZERO MOBILE 포인트형</td>
+                            <td>티시스신문로지점</td   >
+                            <td align="right">9,000</td>
+                            <td align="center" style='mso-number-format:"\@";'>
+                                
+                            </td>
+                            
+                                
+                                <td align="center" style='mso-number-format:"\@";'>
+                                    1.0%
+                                </td>
+                                
+                                
+                            
+                            <td align="right">90</td>
+                            <td align="right">9,000</td>
+                            <td align="right">0</td>
+                            <td align="right">0</td>
+                        </tr>
+                    
+                
+            
+                
+                
+                    
+                    
+                        <tr>
+                            <td align="center">2025년 12월 21일</td>
+                            <td>본인 ZERO MOBILE 포인트형</td>
+                            <td>코스트코코리아</td   >
+                            <td align="right">15,800</td>
+                            <td align="center" style='mso-number-format:"\@";'>
+                                
+                            </td>
+                            
+                                
+                                <td align="center" style='mso-number-format:"\@";'>
+                                    1.0%
+                                </td>
+                                
+                                
+                            
+                            <td align="right">150</td>
+                            <td align="right">15,800</td>
+                            <td align="right">0</td>
+                            <td align="right">0</td>
+                        </tr>
+                    
+                
+            
+                
+                
+                    
+                    
+                        <tr>
+                            <td align="center">2025년 12월 26일</td>
+                            <td>본인 ZERO MOBILE 포인트형</td>
+                            <td>스타벅스코리아</td   >
+                            <td align="right">9,900</td>
+                            <td align="center" style='mso-number-format:"\@";'>
+                                
+                            </td>
+                            
+                                
+                                <td align="center" style='mso-number-format:"\@";'>
+                                    1.0%
+                                </td>
+                                
+                                
+                            
+                            <td align="right">90</td>
+                            <td align="right">9,900</td>
+                            <td align="right">0</td>
+                            <td align="right">0</td>
+                        </tr>
+                    
+                
+            
+                
+                
+                    
+                        <tr>
+                            <td align="center" bgcolor="#f2f2f2">-</td>
+                            <td bgcolor="#f2f2f2"></td>
+                            <td bgcolor="#f2f2f2">일       시       불 소계          4 건</td>
+                            <td align="right" bgcolor="#f2f2f2">0</td>
+                            <td align="center" bgcolor="#f2f2f2"></td>
+                            <td align="center" bgcolor="#f2f2f2"></td>
+                            <td align="right" bgcolor="#f2f2f2">0</td>
+                            <td align="right" bgcolor="#f2f2f2">64,500</td>
+                            <td align="right" bgcolor="#f2f2f2">0</td>
+                            <td align="right" bgcolor="#f2f2f2">0</td>
+                        </tr>
+                    
+                    
+                
+            
+                
+                
+                    
+                    
+                        <tr>
+                            <td align="center">2025년 10월 24일</td>
+                            <td>본인 ZERO MOBILE 포인트형</td>
+                            <td>코스트코코리아</td   >
+                            <td align="right">264,700</td>
+                            <td align="center" style='mso-number-format:"\@";'>
+                                
+                                    3/3
+                                
+                            </td>
+                            
+                                
+                                
+                                <td align="center">
+                                    0%
+                                </td>
+                                
+                            
+                            <td align="right">0</td>
+                            <td align="right">88,200</td>
+                            <td align="right">0</td>
+                            <td align="right">0</td>
+                        </tr>
+                    
+                
+            
+                
+                
+                    
+                    
+                        <tr>
+                            <td align="center">2025년 12월 04일</td>
+                            <td>본인 ZERO MOBILE 포인트형</td>
+                            <td>코스트코코리아</td   >
+                            <td align="right">229,040</td>
+                            <td align="center" style='mso-number-format:"\@";'>
+                                
+                                    3/1
+                                
+                            </td>
+                            
+                                
+                                
+                                <td align="center">
+                                    0%
+                                </td>
+                                
+                            
+                            <td align="right">0</td>
+                            <td align="right">76,440</td>
+                            <td align="right">152,600</td>
+                            <td align="right">0</td>
+                        </tr>
+                    
+                
+            
+                
+                
+                    
+                    
+                        <tr>
+                            <td align="center">2025년 12월 21일</td>
+                            <td>본인 ZERO MOBILE 포인트형</td>
+                            <td>코스트코코리아</td   >
+                            <td align="right">298,170</td>
+                            <td align="center" style='mso-number-format:"\@";'>
+                                
+                                    3/1
+                                
+                            </td>
+                            
+                                
+                                
+                                <td align="center">
+                                    0%
+                                </td>
+                                
+                            
+                            <td align="right">0</td>
+                            <td align="right">99,570</td>
+                            <td align="right">198,600</td>
+                            <td align="right">0</td>
+                        </tr>
+                    
+                
+            
+                
+                
+                    
+                        <tr>
+                            <td align="center" bgcolor="#f2f2f2">-</td>
+                            <td bgcolor="#f2f2f2"></td>
+                            <td bgcolor="#f2f2f2">할                부 소계          3 건</td>
+                            <td align="right" bgcolor="#f2f2f2">0</td>
+                            <td align="center" bgcolor="#f2f2f2"></td>
+                            <td align="center" bgcolor="#f2f2f2"></td>
+                            <td align="right" bgcolor="#f2f2f2">0</td>
+                            <td align="right" bgcolor="#f2f2f2">264,210</td>
+                            <td align="right" bgcolor="#f2f2f2">0</td>
+                            <td align="right" bgcolor="#f2f2f2">0</td>
+                        </tr>
+                    
+                    
+                
+            
+                
+                
+                    
+                        <tr>
+                            <td align="center" bgcolor="#f2f2f2">-</td>
+                            <td bgcolor="#f2f2f2"></td>
+                            <td bgcolor="#f2f2f2">총                   합계          7 건</td>
+                            <td align="right" bgcolor="#f2f2f2">0</td>
+                            <td align="center" bgcolor="#f2f2f2"></td>
+                            <td align="center" bgcolor="#f2f2f2"></td>
+                            <td align="right" bgcolor="#f2f2f2">0</td>
+                            <td align="right" bgcolor="#f2f2f2">328,710</td>
+                            <td align="right" bgcolor="#f2f2f2">0</td>
+                            <td align="right" bgcolor="#f2f2f2">0</td>
+                        </tr>
+                    
+                    
+                
+            
+            
+        </table>
+    
+    
+
+
+</body>
+</html>
