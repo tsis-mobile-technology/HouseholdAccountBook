@@ -60,3 +60,13 @@ exports/*
 
 # Graphify tool outputs
 graphify-out/
+
+# Environment variables & SSL Certificates
+.env
+certs/*
+!certs/.gitkeep
+!certs/README.md
+*.pem
+*.key
+*.crt
+

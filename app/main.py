@@ -60,4 +60,13 @@ def serve_index():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host=HOST, port=PORT, reload=False)
+    from app.core.config import USE_HTTPS, SSL_CERTFILE, SSL_KEYFILE, SSL_KEYFILE_PASSWORD
+
+    ssl_kwargs = {}
+    if USE_HTTPS:
+        ssl_kwargs["ssl_certfile"] = SSL_CERTFILE
+        ssl_kwargs["ssl_keyfile"] = SSL_KEYFILE
+        if SSL_KEYFILE_PASSWORD:
+            ssl_kwargs["ssl_keyfile_password"] = SSL_KEYFILE_PASSWORD
+
+    uvicorn.run("app.main:app", host=HOST, port=PORT, reload=False, **ssl_kwargs)

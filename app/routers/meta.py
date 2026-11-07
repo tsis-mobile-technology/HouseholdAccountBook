@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from app.database.connection import get_connection, get_db_cursor
 from app.models.schemas import CategoryModel, CategoryCreate, PaymentMethodModel
 from app.core.network import get_local_ip, get_mobile_access_url, get_qr_base64
-from app.core.config import PORT
+from app.core.config import PORT, PROTOCOL, USE_HTTPS
 
 router = APIRouter(prefix="/api/meta", tags=["Metadata"])
 
@@ -46,7 +46,9 @@ def get_network_info():
     return {
         "local_ip": local_ip,
         "port": PORT,
-        "pc_url": f"http://localhost:{PORT}",
+        "protocol": PROTOCOL,
+        "use_https": USE_HTTPS,
+        "pc_url": f"{PROTOCOL}://localhost:{PORT}",
         "mobile_url": mobile_url,
         "qr_code": qr_base64
     }

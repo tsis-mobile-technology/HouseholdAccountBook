@@ -2,7 +2,7 @@ import socket
 import io
 import base64
 import qrcode
-from app.core.config import PORT
+from app.core.config import PORT, PROTOCOL, USE_HTTPS
 
 def get_local_ip() -> str:
     """Detect local LAN IP address connecting outward."""
@@ -22,7 +22,7 @@ def get_local_ip() -> str:
 
 def get_mobile_access_url() -> str:
     ip = get_local_ip()
-    return f"http://{ip}:{PORT}"
+    return f"{PROTOCOL}://{ip}:{PORT}"
 
 def print_terminal_qr(url: str = None) -> None:
     """Prints ASCII QR code in terminal on server launch."""
@@ -31,9 +31,10 @@ def print_terminal_qr(url: str = None) -> None:
     qr = qrcode.QRCode(border=1)
     qr.add_data(url)
     qr.make(fit=True)
+    mode_label = "HTTPS (보안 연결)" if USE_HTTPS else "HTTP"
     print("\n" + "=" * 55)
-    print(f"🌸 [HouseholdAccountBook 가계부 서버 시작]")
-    print(f" * PC 접속 URL     : http://localhost:{PORT}")
+    print(f"🌸 [HouseholdAccountBook 가계부 서버 시작 - {mode_label}]")
+    print(f" * PC 접속 URL     : {PROTOCOL}://localhost:{PORT}")
     print(f" * 모바일 접속 URL  : {url}")
     print(f" * 스마트폰 기본 카메라로 아래 QR 코드를 스캔하세요:")
     print("=" * 55)
