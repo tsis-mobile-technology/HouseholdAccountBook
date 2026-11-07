@@ -57,25 +57,41 @@
   </header>
 
   <!-- Tabs Navigation (Responsive scrollable) -->
-  <nav class="flex items-center justify-start gap-1.5 px-3 sm:px-6 py-2.5 overflow-x-auto border-b border-white/60 bg-white/40">
-    <button onclick="switchTab('today')" id="tab-btn-today" class="category-chip active font-bold">
-      ⚡ 오늘 빠른등록
-    </button>
-    <button onclick="switchTab('month')" id="tab-btn-month-detail" class="category-chip font-bold">
-      📅 월간 상세
-    </button>
-    <button onclick="switchTab('annual')" id="tab-btn-annual" class="category-chip font-bold">
-      📊 연간 대시보드
-    </button>
-    <button onclick="switchTab('spending')" id="tab-btn-spending" class="category-chip font-bold">
-      📈 소비 분석
-    </button>
-    <div class="h-4 w-px bg-gray-300 mx-1 flex-shrink-0"></div>
-    <!-- 1월 ~ 12월 Tabs -->
-    <div id="monthTabsContainer" class="flex items-center gap-1 flex-shrink-0">
+  <nav class="flex items-center justify-start gap-1.5 px-2 sm:px-6 py-2 overflow-x-auto border-b border-white/60 bg-white/40">
+    <div class="grid grid-cols-4 sm:flex items-center gap-1 sm:gap-1.5 w-full sm:w-auto flex-shrink-0">
+      <button onclick="switchTab('today')" id="tab-btn-today" class="category-chip active font-bold text-center justify-center px-1.5 sm:px-3 py-1.5 sm:py-2">
+        <span class="hidden sm:inline">⚡ 오늘 빠른등록</span><span class="inline sm:hidden text-xs">⚡ 빠른등록</span>
+      </button>
+      <button onclick="switchTab('month')" id="tab-btn-month-detail" class="category-chip font-bold text-center justify-center px-1.5 sm:px-3 py-1.5 sm:py-2">
+        <span class="hidden sm:inline">📅 월간 상세</span><span class="inline sm:hidden text-xs">📅 월간</span>
+      </button>
+      <button onclick="switchTab('annual')" id="tab-btn-annual" class="category-chip font-bold text-center justify-center px-1.5 sm:px-3 py-1.5 sm:py-2">
+        <span class="hidden sm:inline">📊 연간 대시보드</span><span class="inline sm:hidden text-xs">📊 연간</span>
+      </button>
+      <button onclick="switchTab('spending')" id="tab-btn-spending" class="category-chip font-bold text-center justify-center px-1.5 sm:px-3 py-1.5 sm:py-2">
+        <span class="hidden sm:inline">📈 소비 분석</span><span class="inline sm:hidden text-xs">📈 분석</span>
+      </button>
+    </div>
+    <div class="hidden sm:block h-4 w-px bg-gray-300 mx-1 flex-shrink-0"></div>
+    <!-- 1월 ~ 12월 Tabs (PC 화면에서 가로 나열) -->
+    <div id="monthTabsContainer" class="hidden sm:flex items-center gap-1 flex-shrink-0">
       <!-- Injected by JS -->
     </div>
   </nav>
+
+  <!-- 모바일 전용 스마트 월 네비게이터 바 (추천 1안) -->
+  <div id="mobileMonthBar" class="flex sm:hidden items-center justify-between px-3 py-1.5 bg-white/70 border-b border-slate-200/70 backdrop-blur-sm transition-all">
+    <button type="button" onclick="prevMonth()" class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-slate-700 hover:text-indigo-600 hover:bg-white/80 active:scale-95 transition-all text-xs font-bold" title="이전 달">
+      <i class="fas fa-chevron-left text-[10px]"></i> 이전달
+    </button>
+    <button type="button" onclick="openMonthPickerModal()" class="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-indigo-50 border border-indigo-200/80 text-indigo-700 font-black text-xs shadow-xs active:scale-95 transition-all cursor-pointer">
+      <span id="mobileMonthBarLabel">2026년 10월</span>
+      <i class="fas fa-chevron-down text-[10px] text-indigo-500"></i>
+    </button>
+    <button type="button" onclick="nextMonth()" class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-slate-700 hover:text-indigo-600 hover:bg-white/80 active:scale-95 transition-all text-xs font-bold" title="다음 달">
+      다음달 <i class="fas fa-chevron-right text-[10px]"></i>
+    </button>
+  </div>
 
   <!-- Main Container -->
   <main class="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-5 space-y-5 sm:space-y-6">
@@ -1087,6 +1103,26 @@
     </div>
   </div>
 
+  <!-- Mobile Month Picker Bottom Sheet / Modal -->
+  <div id="modalMonthPicker" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs hidden flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all" onclick="if(event.target===this) closeMonthPickerModal()">
+    <div class="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-100">
+        <div class="flex items-center gap-2">
+          <span class="text-base font-black text-slate-900" id="monthPickerYearTitle">2026년 월 선택</span>
+          <span class="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">원터치 이동</span>
+        </div>
+        <button type="button" onclick="closeMonthPickerModal()" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+      <div class="p-4">
+        <div id="monthPickerGrid" class="grid grid-cols-3 gap-2.5">
+          <!-- Injected by JS: 1월~12월 버튼 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Mobile Bottom Navigation Bar (Visible on mobile screens) -->
   <nav class="bottom-nav md:hidden">
     <div onclick="switchTab('today')" id="mobile-nav-today" class="bottom-nav-item active">
@@ -1112,6 +1148,6 @@
   </nav>
 
   <!-- Main Application Script -->
-  <script src="/static/js/app.js?v=20261107-03"></script>
+  <script src="/static/js/app.js?v=20261107-04"></script>
 </body>
 </html>

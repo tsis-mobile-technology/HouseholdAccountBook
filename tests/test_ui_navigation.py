@@ -76,3 +76,31 @@ def test_js_month_tab_click_logic():
     # switchTab('month') 처리 여부
     assert "tab === 'month'" in js
     assert "tab-btn-month-detail" in js
+
+
+def test_mobile_smart_month_navigator():
+    """모바일 스마트 월 네비게이터 및 월 선택 바텀시트/모달 UI 요소 및 JS 함수 검증"""
+    client = TestClient(app)
+
+    # 1. HTML 요소 검증
+    res_html = client.get("/")
+    assert res_html.status_code == 200
+    html = res_html.text
+
+    assert 'id="mobileMonthBar"' in html
+    assert 'id="mobileMonthBarLabel"' in html
+    assert 'openMonthPickerModal()' in html
+    assert 'prevMonth()' in html
+    assert 'nextMonth()' in html
+    assert 'id="modalMonthPicker"' in html
+    assert 'id="monthPickerGrid"' in html
+
+    # 2. JS 함수 검증
+    res_js = client.get("/static/js/app.js")
+    assert res_js.status_code == 200
+    js = res_js.text
+
+    assert "updateMobileMonthBar" in js
+    assert "openMonthPickerModal" in js
+    assert "closeMonthPickerModal" in js
+    assert "renderMonthPickerGrid" in js

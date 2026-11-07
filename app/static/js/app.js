@@ -112,6 +112,64 @@ function updateHeaderMonthLabel() {
   if (lbl) {
     lbl.textContent = `${STATE.currentYear}년 ${STATE.currentMonth}월`;
   }
+  updateMobileMonthBar();
+}
+
+function updateMobileMonthBar() {
+  const lbl = document.getElementById('mobileMonthBarLabel');
+  if (lbl) {
+    lbl.textContent = `${STATE.currentYear}년 ${STATE.currentMonth}월`;
+  }
+  const bar = document.getElementById('mobileMonthBar');
+  if (bar) {
+    if (STATE.currentTab === 'annual') {
+      bar.classList.add('opacity-40', 'pointer-events-none');
+    } else {
+      bar.classList.remove('opacity-40', 'pointer-events-none');
+    }
+  }
+}
+
+function openMonthPickerModal() {
+  const modal = document.getElementById('modalMonthPicker');
+  if (!modal) return;
+  const title = document.getElementById('monthPickerYearTitle');
+  if (title) title.textContent = `${STATE.currentYear}년 월 선택`;
+  renderMonthPickerGrid();
+  modal.classList.remove('hidden');
+}
+
+function closeMonthPickerModal() {
+  const modal = document.getElementById('modalMonthPicker');
+  if (modal) modal.classList.add('hidden');
+}
+
+function renderMonthPickerGrid() {
+  const grid = document.getElementById('monthPickerGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  const now = new Date();
+  const thisMonth = now.getFullYear() === STATE.currentYear ? now.getMonth() + 1 : -1;
+
+  for (let m = 1; m <= 12; m++) {
+    const isCurrent = m === STATE.currentMonth;
+    const isThisMonth = m === thisMonth;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = isCurrent
+      ? 'relative py-3.5 px-2 rounded-2xl bg-indigo-600 text-white font-black shadow-md text-sm cursor-pointer'
+      : 'relative py-3.5 px-2 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-800 font-bold border border-slate-200 text-sm cursor-pointer active:scale-95 transition-all';
+
+    let badgeHtml = isThisMonth ? '<span class="absolute top-1.5 right-2 text-[9px] px-1 py-0.2 rounded-full bg-emerald-500 text-white font-extrabold">이번달</span>' : '';
+    btn.innerHTML = `<span>${m}월</span>${badgeHtml}`;
+
+    btn.onclick = () => {
+      onMonthTabClick(m);
+      closeMonthPickerModal();
+    };
+    grid.appendChild(btn);
+  }
 }
 
 function prevMonth() {
@@ -337,6 +395,7 @@ function switchTab(tab) {
     const mb = document.getElementById('mobile-nav-annual');
     if (mb) mb.classList.add('active');
     updateMonthTabsHighlight();
+    updateMobileMonthBar();
     loadAnnualDashboard();
   } else if (tab === 'spending') {
     if (viewSpending) viewSpending.classList.remove('hidden');
