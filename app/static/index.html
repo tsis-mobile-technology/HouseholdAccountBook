@@ -574,16 +574,31 @@
 
       <!-- 2) Interactive Visual Graphs Grid (Chart.js) -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
-        <!-- Chart 1: Category Donut Chart -->
-        <div class="glass-panel p-4 sm:p-5">
-          <div class="flex items-center justify-between mb-3">
-            <h4 class="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
-              <span>🍩 카테고리별 소비 점유율</span>
-            </h4>
-            <span class="text-xs font-semibold text-slate-500">지출 비중(%)</span>
+        <!-- Chart 1: Category Donut Chart (Drill-down 2Depth 지원) -->
+        <div class="glass-panel p-4 sm:p-5" id="categoryChartContainer">
+          <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h4 id="categoryChartTitle" class="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                <span>🍩 카테고리별 소비 점유율</span>
+              </h4>
+              <button id="btnCategoryChartBack" type="button" onclick="resetCategoryChartToDepth1()" class="hidden items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-full transition-all shadow-sm cursor-pointer hover:shadow">
+                <i class="fas fa-arrow-left text-[10px]"></i> 전체 카테고리
+              </button>
+            </div>
+            <div class="flex items-center gap-2">
+              <!-- 2Depth 하이브리드 토글 (소분류별 vs 가맹점별) -->
+              <div id="categoryChartModeToggle" class="hidden items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-bold">
+                <button id="btnSubCategoryMode" type="button" onclick="setCategoryChart2DepthMode('sub')" class="px-2.5 py-0.5 rounded-md bg-white text-indigo-600 shadow-sm transition-all cursor-pointer">소분류별</button>
+                <button id="btnMerchantMode" type="button" onclick="setCategoryChart2DepthMode('merchant')" class="px-2.5 py-0.5 rounded-md text-slate-500 hover:text-slate-800 transition-all cursor-pointer">가맹점별</button>
+              </div>
+              <span id="categoryChartSubBadge" class="text-xs font-semibold text-slate-500">지출 비중(%)</span>
+            </div>
           </div>
           <div class="relative h-64 sm:h-72 flex items-center justify-center">
             <canvas id="chartCategoryDonut"></canvas>
+          </div>
+          <div id="categoryChartHint" class="text-[11px] font-medium text-slate-600 text-center mt-2 flex items-center justify-center gap-1">
+            <span id="categoryChartHintText">💡 파이 조각을 클릭하면 세부 지출 항목(2Depth)을 확인할 수 있습니다.</span>
           </div>
         </div>
 
@@ -1076,6 +1091,6 @@
   </nav>
 
   <!-- Main Application Script -->
-  <script src="/static/js/app.js?v=20260930-01"></script>
+  <script src="/static/js/app.js?v=20261107-01"></script>
 </body>
 </html>

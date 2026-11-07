@@ -12,6 +12,10 @@ const STATE = {
   trendChart: null,
   donutChart: null,
   spendingCategoryChart: null,
+  spendingCategoryData: null,
+  spendingCategoryDepth: 1,
+  spendingCategory2DepthMode: 'sub', // 'sub' | 'merchant'
+  selectedCategoryItem: null,
   spendingPaymentChart: null,
   spendingWeeklyChart: null,
   spendingDayOfWeekChart: null,
@@ -1230,6 +1234,9 @@ async function loadSpendingPatterns() {
     }
 
     // 3) Visual Charts
+    STATE.spendingCategoryData = data.categories;
+    STATE.spendingCategoryDepth = 1;
+    STATE.selectedCategoryItem = null;
     renderSpendingCategoryChart(data.categories);
     renderSpendingPaymentChart(data.payment_methods);
     renderSpendingWeeklyChart(data.weekly);
@@ -1245,10 +1252,236 @@ async function loadSpendingPatterns() {
   }
 }
 
-function renderSpendingCategoryChart(categories) {
+const SUB_CATEGORY_PALETTE = [
+  '#4F46E5', '#2563EB', '#0284C7', '#0D9488', '#059669',
+  '#D97706', '#EA580C', '#DC2626', '#DB2777', '#7C3AED',
+  '#65A30D', '#0891B2', '#9333EA', '#475569'
+];
+
+function resetCategoryChartToDepth1() {
+  STATE.spendingCategoryDepth = 1;
+  STATE.selectedCategoryItem = null;
+
+  const modeToggle = document.getElementById('categoryChartModeToggle');
+  if (modeToggle) {
+    modeToggle.classList.add('hidden');
+    modeToggle.classList.remove('inline-flex');
+  }
+
+  renderSpendingCategoryChart(STATE.spendingCategoryData);
+}
+
+function setCategoryChart2DepthMode(mode) {
+  STATE.spendingCategory2DepthMode = mode; // 'sub' or 'merchant'
+
+  // Update button active states
+  const btnSub = document.getElementById('btnSubCategoryMode');
+  const btnMerch = document.getElementById('btnMerchantMode');
+
+  if (mode === 'sub') {
+    if (btnSub) {
+      btnSub.className = 'px-2.5 py-0.5 rounded-md bg-white text-indigo-600 shadow-sm transition-all cursor-pointer font-extrabold';
+    }
+    if (btnMerch) {
+      btnMerch.className = 'px-2.5 py-0.5 rounded-md text-slate-500 hover:text-slate-800 transition-all cursor-pointer font-bold';
+    }
+  } else {
+    if (btnSub) {
+      btnSub.className = 'px-2.5 py-0.5 rounded-md text-slate-500 hover:text-slate-800 transition-all cursor-pointer font-bold';
+    }
+    if (btnMerch) {
+      btnMerch.className = 'px-2.5 py-0.5 rounded-md bg-white text-indigo-600 shadow-sm transition-all cursor-pointer font-extrabold';
+    }
+  }
+
+  if (STATE.spendingCategoryDepth === 2 && STATE.selectedCategoryItem) {
+    drilldownSpendingCategory(STATE.selectedCategoryItem);
+  }
+}
+
+function selectCategoryFromTable(categoryId) {
+  if (!STATE.spendingCategoryData) return;
+  const target = STATE.spendingCategoryData.find(c => c.category_id === categoryId);
+  if (target && target.amount > 0) {
+    drilldownSpendingCategory(target);
+    const container = document.getElementById('categoryChartContainer');
+    if (container) {
+      container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+}
+
+function drilldownSpendingCategory(catItem) {
+  if (!catItem) return;
+  STATE.spendingCategoryDepth = 2;
+  STATE.selectedCategoryItem = catItem;
+
   const ctx = document.getElementById('chartCategoryDonut');
   if (!ctx) return;
   if (STATE.spendingCategoryChart) STATE.spendingCategoryChart.destroy();
+
+  const isSubMode = STATE.spendingCategory2DepthMode === 'sub';
+  const modeLabel = isSubMode ? '소분류별' : '가맹점별';
+
+  // 1) UI Header & Badge Updates
+  const titleEl = document.getElementById('categoryChartTitle');
+  if (titleEl) {
+    titleEl.innerHTML = `<span>🍩 <span class="text-indigo-600 font-black cursor-pointer hover:underline" onclick="resetCategoryChartToDepth1()" title="전체 카테고리로 돌아가기">${escapeHtml(catItem.name)}</span> <span class="text-xs font-bold text-slate-500">(${modeLabel})</span></span>`;
+  }
+  const backBtn = document.getElementById('btnCategoryChartBack');
+  if (backBtn) {
+    backBtn.classList.remove('hidden');
+    backBtn.classList.add('inline-flex');
+  }
+
+  // 2) Toggle Bar Show & Sync
+  const modeToggle = document.getElementById('categoryChartModeToggle');
+  if (modeToggle) {
+    modeToggle.classList.remove('hidden');
+    modeToggle.classList.add('inline-flex');
+  }
+  const btnSub = document.getElementById('btnSubCategoryMode');
+  const btnMerch = document.getElementById('btnMerchantMode');
+  if (btnSub && btnMerch) {
+    if (isSubMode) {
+      btnSub.className = 'px-2.5 py-0.5 rounded-md bg-white text-indigo-600 shadow-sm transition-all cursor-pointer font-extrabold';
+      btnMerch.className = 'px-2.5 py-0.5 rounded-md text-slate-500 hover:text-slate-800 transition-all cursor-pointer font-bold';
+    } else {
+      btnSub.className = 'px-2.5 py-0.5 rounded-md text-slate-500 hover:text-slate-800 transition-all cursor-pointer font-bold';
+      btnMerch.className = 'px-2.5 py-0.5 rounded-md bg-white text-indigo-600 shadow-sm transition-all cursor-pointer font-extrabold';
+    }
+  }
+
+  const badgeEl = document.getElementById('categoryChartSubBadge');
+  if (badgeEl) {
+    badgeEl.textContent = `총 ${formatKRW(catItem.amount)}원 (${catItem.percentage}%)`;
+  }
+  const hintEl = document.getElementById('categoryChartHintText');
+  if (hintEl) {
+    hintEl.innerHTML = `💡 상단 탭에서 <strong>소분류/가맹점</strong> 전환이 가능하며, <strong>← 전체 카테고리</strong> 버튼이나 그래프를 클릭하면 복귀합니다.`;
+  }
+
+  // 3) Select dataset (sub_items vs merchant_items)
+  const rawItems = isSubMode ? (catItem.sub_items || []) : (catItem.merchant_items || []);
+  const validItems = rawItems.filter(s => s.amount > 0);
+  let displayItems = [];
+
+  if (validItems.length === 0) {
+    displayItems = [{
+      name: catItem.name,
+      amount: catItem.amount,
+      count: catItem.count || 1,
+      percentage: 100.0
+    }];
+  } else if (validItems.length > 7) {
+    const top7 = validItems.slice(0, 7);
+    const rest = validItems.slice(7);
+    const restAmount = rest.reduce((acc, cur) => acc + cur.amount, 0);
+    const restCount = rest.reduce((acc, cur) => acc + cur.count, 0);
+    const restPct = catItem.amount > 0 ? Math.round((restAmount / catItem.amount * 100) * 10) / 10 : 0.0;
+    displayItems = [
+      ...top7,
+      {
+        name: `기타 (외 ${rest.length}개)`,
+        amount: restAmount,
+        count: restCount,
+        percentage: restPct
+      }
+    ];
+  } else {
+    displayItems = [...validItems];
+  }
+
+  const labels = displayItems.map(s => s.name);
+  const data = displayItems.map(s => s.amount);
+  const colors = displayItems.map((s, idx) => {
+    if (idx === 0 && catItem.color_hex) return catItem.color_hex;
+    return SUB_CATEGORY_PALETTE[idx % SUB_CATEGORY_PALETTE.length];
+  });
+
+  // 4) Render 2Depth Pie/Donut Chart
+  STATE.spendingCategoryChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: colors,
+        borderWidth: 2,
+        borderColor: '#ffffff',
+        hoverOffset: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '58%',
+      onClick: (event, elements) => {
+        // 2Depth에서는 어느 조각을 클릭하든 편하게 1Depth로 복귀
+        resetCategoryChartToDepth1();
+      },
+      onHover: (event, elements) => {
+        const canvas = event.chart.canvas;
+        canvas.style.cursor = 'pointer';
+      },
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: {
+            font: { family: 'Pretendard', size: 11, weight: 'bold' },
+            boxWidth: 12,
+            padding: 8
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const label = ctx.label || '';
+              const val = ctx.raw || 0;
+              const item = displayItems[ctx.dataIndex];
+              const pct = item ? item.percentage : 0;
+              const countText = item && item.count ? ` (${item.count}건)` : '';
+              return ` ${label}: ${formatKRW(val)}원 (${pct}%)${countText}`;
+            },
+            afterLabel: () => '↩️ 클릭 시 전체 카테고리로 돌아가기'
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderSpendingCategoryChart(categories) {
+  STATE.spendingCategoryDepth = 1;
+  STATE.selectedCategoryItem = null;
+
+  const ctx = document.getElementById('chartCategoryDonut');
+  if (!ctx) return;
+  if (STATE.spendingCategoryChart) STATE.spendingCategoryChart.destroy();
+
+  // Reset Header & Badges to 1Depth
+  const titleEl = document.getElementById('categoryChartTitle');
+  if (titleEl) {
+    titleEl.innerHTML = '<span>🍩 카테고리별 소비 점유율</span>';
+  }
+  const backBtn = document.getElementById('btnCategoryChartBack');
+  if (backBtn) {
+    backBtn.classList.add('hidden');
+    backBtn.classList.remove('inline-flex');
+  }
+  const modeToggle = document.getElementById('categoryChartModeToggle');
+  if (modeToggle) {
+    modeToggle.classList.add('hidden');
+    modeToggle.classList.remove('inline-flex');
+  }
+  const badgeEl = document.getElementById('categoryChartSubBadge');
+  if (badgeEl) {
+    badgeEl.textContent = '지출 비중(%)';
+  }
+  const hintEl = document.getElementById('categoryChartHintText');
+  if (hintEl) {
+    hintEl.textContent = '💡 파이 조각을 클릭하면 세부 지출 항목(2Depth)을 확인할 수 있습니다.';
+  }
 
   const validCats = (categories || []).filter(c => c.amount > 0);
   if (validCats.length === 0) {
@@ -1283,13 +1516,25 @@ function renderSpendingCategoryChart(categories) {
         backgroundColor: colors,
         borderWidth: 2,
         borderColor: '#ffffff',
-        hoverOffset: 6
+        hoverOffset: 8
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       cutout: '62%',
+      onClick: (event, elements) => {
+        if (!elements || elements.length === 0) return;
+        const index = elements[0].index;
+        const clickedCat = validCats[index];
+        if (clickedCat) {
+          drilldownSpendingCategory(clickedCat);
+        }
+      },
+      onHover: (event, elements) => {
+        const canvas = event.chart.canvas;
+        canvas.style.cursor = elements && elements.length > 0 ? 'pointer' : 'default';
+      },
       plugins: {
         legend: {
           position: 'right',
@@ -1307,7 +1552,8 @@ function renderSpendingCategoryChart(categories) {
               const cat = validCats[ctx.dataIndex];
               const pct = cat ? cat.percentage : 0;
               return ` ${label}: ${formatKRW(val)}원 (${pct}%)`;
-            }
+            },
+            afterLabel: () => '👉 클릭 시 세부 지출(2Depth) 보기'
           }
         }
       }
@@ -1507,10 +1753,11 @@ function renderSpendingGrids(data) {
           momBadge = `<span class="text-emerald-600 font-black">▼ ${formatKRW(cat.diff_amount)}원</span>`;
         }
         return `
-          <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+          <tr class="hover:bg-indigo-50/70 transition border-b border-slate-100 cursor-pointer group" onclick="selectCategoryFromTable(${cat.category_id})" title="클릭하여 ${escapeHtml(cat.name)} 세부 점유율 파이그래프 보기">
             <td class="font-extrabold text-slate-900 flex items-center gap-2 py-2.5 px-3">
               <span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: ${cat.color_hex || '#94A3B8'}"></span>
-              <span>${escapeHtml(cat.name)}</span>
+              <span class="group-hover:text-indigo-600 transition-colors">${escapeHtml(cat.name)}</span>
+              <i class="fas fa-chevron-right text-[10px] text-slate-300 group-hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity ml-1"></i>
             </td>
             <td class="text-right font-extrabold text-rose-600 py-2.5 px-3 font-mono">${formatKRW(cat.amount)}</td>
             <td class="text-right font-bold text-slate-700 py-2.5 px-3">${cat.percentage}%</td>
@@ -2417,3 +2664,12 @@ async function executeDataReset() {
     btn.textContent = '초기화 실행';
   }
 }
+
+// Global keyboard shortcuts (ESC to return from 2Depth to 1Depth)
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' || e.key === 'Esc') {
+    if (STATE.spendingCategoryDepth === 2) {
+      resetCategoryChartToDepth1();
+    }
+  }
+});

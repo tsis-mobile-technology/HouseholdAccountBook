@@ -197,6 +197,19 @@ def test_spending_patterns_api():
     assert data["transaction_count"] == 5
     assert data["daily_average"] > 0
     assert len(data["categories"]) > 0
+    # Verify Category 2Depth sub_items grouping
+    first_cat = data["categories"][0]
+    assert "sub_items" in first_cat
+    assert isinstance(first_cat["sub_items"], list)
+    if first_cat["amount"] > 0:
+        assert len(first_cat["sub_items"]) > 0
+        sub_item = first_cat["sub_items"][0]
+        assert "name" in sub_item
+        assert "amount" in sub_item
+        assert "percentage" in sub_item
+        assert "count" in sub_item
+        assert sub_item["amount"] > 0
+
     assert len(data["payment_methods"]) > 0
     assert len(data["weekly"]) == 5
     assert len(data["day_of_week"]) == 7
@@ -224,6 +237,11 @@ def test_frontend_assets_served():
     assert 'id="chartPaymentMethodPie"' in html
     assert 'id="chartWeeklyBar"' in html
     assert 'id="chartDayOfWeekBar"' in html
+    assert 'id="btnCategoryChartBack"' in html
+    assert 'id="categoryChartTitle"' in html
+    assert 'id="categoryChartModeToggle"' in html
+    assert 'id="btnSubCategoryMode"' in html
+    assert 'id="btnMerchantMode"' in html
     assert 'openCardUploadModal()' in html
 
     # 2. Verify app.js is served and contains new logic
@@ -235,6 +253,58 @@ def test_frontend_assets_served():
     assert "analyzeCardFile" in js
     assert "confirmCardImport" in js
     assert "renderSpendingCategoryChart" in js
+    assert "drilldownSpendingCategory" in js
+    assert "resetCategoryChartToDepth1" in js
+    assert "setCategoryChart2DepthMode" in js
+    assert "selectCategoryFromTable" in js
+
+def test_category_drilldown_sub_items():
+    # Insert specific category transactions with diverse titles
+    test_year = 2026
+    test_month = 9
+    with get_db_cursor() as cur:
+        # Category 1 (식비) has multiple merchants
+        cur.execute("""
+            INSERT INTO variable_expenses (transaction_date, category_id, title, payment_method_id, amount, memo)
+            VALUES
+            ('2026-09-01', 1, '이마트 장보기', 1, 100000, ''),
+            ('2026-09-02', 1, '이마트 장보기', 1, 50000, ''),
+            ('2026-09-03', 1, '배달의민족', 1, 30000, ''),
+            ('2026-09-04', 1, '스타벅스 커피', 1, 20000, '')
+        """)
+
+    try:
+        res = client.get(f"/api/analytics/spending-patterns?year={test_year}&month={test_month}")
+        assert res.status_code == 200
+        data = res.json()
+        cat1 = next((c for c in data["categories"] if c["category_id"] == 1), None)
+        assert cat1 is not None
+        assert cat1["amount"] >= 200000
+
+        # Sub items (소분류) verification
+        sub_items = cat1["sub_items"]
+        assert len(sub_items) >= 2
+        sub_names = [s["name"] for s in sub_items]
+        assert "대형마트 / 장보기" in sub_names
+
+        # Merchant items (가맹점) verification
+        merchant_items = cat1["merchant_items"]
+        assert len(merchant_items) >= 2
+        # '이마트 장보기' -> normalized to '이마트' (100,000 + 50,000 = 150,000, count=2)
+        emart_item = next((m for m in merchant_items if m["name"] == "이마트"), None)
+        assert emart_item is not None
+        assert emart_item["amount"] >= 150000
+        assert emart_item["count"] >= 2
+
+        # Sub items and merchant items should be sorted descending by amount
+        sub_amounts = [s["amount"] for s in sub_items]
+        assert sub_amounts == sorted(sub_amounts, reverse=True)
+        merch_amounts = [m["amount"] for m in merchant_items]
+        assert merch_amounts == sorted(merch_amounts, reverse=True)
+
+    finally:
+        with get_db_cursor() as cur:
+            cur.execute("DELETE FROM variable_expenses WHERE transaction_date IN ('2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04') AND title IN ('이마트 장보기', '배달의민족', '스타벅스 커피')")
 
 def test_e2e_card_upload_and_spending_analysis():
     # Full flow:

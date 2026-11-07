@@ -157,6 +157,12 @@ class CardConfirmResponse(BaseModel):
     message: str
 
 # --- Monthly Spending Pattern Analytics ---
+class CategorySubItem(BaseModel):
+    name: str
+    amount: int
+    count: int
+    percentage: float
+
 class CategorySpendingItem(BaseModel):
     category_id: int
     name: str
@@ -168,6 +174,8 @@ class CategorySpendingItem(BaseModel):
     diff_amount: int
     diff_rate: float
     count: int
+    sub_items: List[CategorySubItem] = []
+    merchant_items: List[CategorySubItem] = []
 
 class PaymentMethodSpendingItem(BaseModel):
     payment_method_id: int

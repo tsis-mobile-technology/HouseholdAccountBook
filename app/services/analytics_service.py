@@ -7,6 +7,7 @@ from app.models.schemas import (
     MonthlySummaryResponse,
     AnnualMonthRow,
     AnnualDashboardResponse,
+    CategorySubItem,
     CategorySpendingItem,
     PaymentMethodSpendingItem,
     WeeklySpendingItem,
@@ -154,6 +155,189 @@ def get_category_breakdown(year: int, month: int) -> List[Dict[str, Any]]:
         conn.close()
 
 
+def clean_merchant_name(raw_title: str) -> str:
+    """Cleans installment tags, corporate prefixes, and normalizes brand names."""
+    if not raw_title:
+        return "기타"
+    # 1. Strip installment/cancel brackets
+    title = re.sub(r"\[할부.*?\]|\[취소.*?\]", "", raw_title).strip()
+    if not title:
+        title = raw_title.strip()
+
+    # 2. Strip corporate prefixes & suffixes
+    title = re.sub(r"^\(주\)|\(주\)$|^주식회사\s*|\s*주식회사|^㈜|㈜$|^\(유\)|\(유\)$|^유한회사\s*|\s*유한회사", "", title).strip()
+
+    # 3. Known brand normalization
+    t_lower = title.lower()
+    if "우아한형제들" in title or "배달의민족" in title or "배민" in title:
+        return "배달의민족"
+    if "코스트코" in title:
+        return "코스트코"
+    if "이마트" in title and "24" not in title:
+        return "이마트"
+    if "쿠팡" in title:
+        return "쿠팡"
+    if "다이소" in title:
+        return "다이소"
+    if "올리브영" in title:
+        return "올리브영"
+    if "네이버" in title:
+        return "네이버페이"
+    if "아이파크" in title:
+        return "고척아이파크몰"
+    if "지에스칼텍스" in title or "gs칼텍스" in t_lower:
+        return "GS칼텍스 주유소"
+    if "철도승차권" in title or "코레일" in title or "ktx" in t_lower:
+        return "코레일(KTX/철도)"
+    if "알앤알" in title:
+        return "알앤알에듀"
+    if "사과나무" in title:
+        return "사과나무학원"
+    if "시대인재" in title or "하이컨시" in title:
+        return "시대인재"
+    if "러셀" in title:
+        return "러셀학원"
+    if "펫프렌즈" in title:
+        return "펫프렌즈"
+    if "넷플릭스" in title:
+        return "넷플릭스"
+    if "cgv" in t_lower:
+        return "CGV"
+    if "ssg.com" in t_lower or "쓱닷컴" in title:
+        return "SSG.COM"
+    if "무신사" in title:
+        return "무신사"
+    if "아웃백" in title:
+        return "아웃백"
+    if "남시약국" in title:
+        return "남시약국"
+    if "뽀빠이마취" in title:
+        return "뽀빠이마취통증의학과"
+    if "이화여자고등" in title:
+        if "조식" in title: return "이화여고 조식비"
+        if "중식" in title: return "이화여고 중식비"
+        if "석식" in title: return "이화여고 석식비"
+        if "수학여행" in title: return "이화여고 수학여행비"
+        return "이화여고 학교납입금"
+
+    return title
+
+
+def classify_sub_category(cat_name: str, clean_name: str, raw_title: str) -> str:
+    """Classifies transaction into a high-level sub-category based on category and title keywords."""
+    t = f"{clean_name} {raw_title}".lower()
+
+    if cat_name == "식비":
+        if any(k in t for k in ["코스트코", "이마트", "홈플러스", "롯데마트", "트레이더스", "하나로", "장보기"]):
+            return "대형마트 / 장보기"
+        if any(k in t for k in ["쿠팡", "컬리", "오아시스", "쓱닷컴", "ssg"]):
+            return "온라인 장보기 / e커머스"
+        if any(k in t for k in ["마트", "슈퍼", "상회", "유통", "청과", "정육", "시장", "농협"]):
+            return "동네슈퍼 / 로컬마트"
+        if any(k in t for k in ["과일", "채소", "고구마", "무화과", "사과", "정육", "반찬", "떡"]):
+            return "신선식품 / 과일"
+        return "기타 식비"
+
+    elif cat_name == "외식/카페":
+        if any(k in t for k in ["우아한형제들", "배달의민족", "배민", "요기요", "쿠팡이츠"]):
+            return "배달음식 / 배민"
+        if any(k in t for k in ["카페", "커피", "투썸", "스타벅스", "폴바셋", "이디야", "메가", "베이커리", "빵", "디저트", "공차", "설빙"]):
+            return "카페 / 디저트"
+        if any(k in t for k in ["맥도날드", "버거", "피자", "치킨", "떡볶이", "분식", "앤티앤스", "엽떡", "짜장", "중화", "탕수육"]):
+            return "패스트푸드 / 분식 / 야식"
+        if any(k in t for k in ["아웃백", "식당", "갈비", "고기", "숯불", "회", "가족 외식", "송림가", "실크로드", "초밥", "파스타", "레스토랑"]):
+            return "일반식당 / 외식"
+        return "일반식당 / 외식"
+
+    elif cat_name == "교통/차량":
+        if any(k in t for k in ["주유", "칼텍스", "오일", "에너지", "충전", "gs"]):
+            return "주유 / 충전"
+        if any(k in t for k in ["철도", "코레일", "ktx", "srt", "기차", "승차권", "고속버스", "시외버스", "공항"]):
+            return "기차 / 시외교통"
+        if any(k in t for k in ["엔진오일", "정비", "공업사", "카센터", "타이어", "수리", "세차"]):
+            return "차량정비 / 유지"
+        if any(k in t for k in ["버스", "지하철", "교통-", "티머니", "택시", "카카오t"]):
+            return "시내대중교통 / 택시"
+        return "기타 교통"
+
+    elif cat_name == "학원/도서":
+        if any(k in t for k in ["러셀", "알앤알", "사과나무", "시대인재", "학원", "정상제이엘에스", "교육", "보습"]):
+            return "학원 수강료"
+        if any(k in t for k in ["이화여고", "학교", "조식", "중식", "석식", "급식", "수학여행", "대학교", "원광대"]):
+            return "학교납입금 / 급식"
+        if any(k in t for k in ["스터디카페", "독서실"]):
+            return "스터디카페 / 독서실"
+        if any(k in t for k in ["교재", "도서", "교보", "알라딘", "예스24", "서점", "책"]):
+            return "도서 / 교재비"
+        return "기타 교육"
+
+    elif cat_name == "쇼핑/의류":
+        if any(k in t for k in ["ssg", "네이버", "쿠팡", "11번가", "온라인", "플랫폼"]):
+            return "온라인 쇼핑몰"
+        if any(k in t for k in ["아이파크", "백화점", "아울렛", "몰", "타임스퀘어"]):
+            return "백화점 / 복합몰"
+        if any(k in t for k in ["옷", "의류", "신발", "운동화", "abc마트", "무신사", "에잇세컨즈", "교복", "캐쥬얼", "패션"]):
+            return "의류 / 잡화 / 패션"
+        if any(k in t for k in ["올리브영", "화장품", "뷰티"]):
+            return "뷰티 / 화장품"
+        return "기타 쇼핑"
+
+    elif cat_name == "의료/건강":
+        if any(k in t for k in ["약국", "남시약국", "온누리"]):
+            return "약국 / 의약품"
+        if any(k in t for k in ["병원", "의원", "치과", "내과", "마취", "통증", "한의원", "진료", "메디칼"]):
+            return "병의원 / 진료"
+        if any(k in t for k in ["안경", "렌즈", "건강식품"]):
+            return "안경 / 건강보조"
+        return "기타 의료"
+
+    elif cat_name == "생활용품":
+        if any(k in t for k in ["다이소", "잡화", "소품", "생필품"]):
+            return "생활잡화 / 다이소"
+        if any(k in t for k in ["cu", "gs25", "세븐일레븐", "이마트24", "편의점"]):
+            return "편의점"
+        if any(k in t for k in ["코스트코", "올리브영"]):
+            return "마트 / 드럭스토어 생필품"
+        return "기타 생활용품"
+
+    elif cat_name == "별콩이":
+        if any(k in t for k in ["사료", "간식", "템테이션", "텐더", "북어", "트릿", "치킨"]):
+            return "반려묘 사료 / 간식"
+        if any(k in t for k in ["병원", "동물병원", "진료"]):
+            return "동물병원 / 진료"
+        if any(k in t for k in ["펫프렌즈", "장난감", "용품", "모래"]):
+            return "반려용품 / 장난감"
+        return "기타 반려동물"
+
+    elif cat_name == "문화/여가":
+        if any(k in t for k in ["cgv", "시네마", "영화"]):
+            return "영화 / 공연"
+        if any(k in t for k in ["넷플릭스", "유튜브", "티빙", "ott", "구독"]):
+            return "OTT / 디지털구독"
+        if any(k in t for k in ["롯데월드", "약속", "인사동", "여행"]):
+            return "나들이 / 여가"
+        return "기타 여가"
+
+    elif cat_name == "기타":
+        if any(k in t for k in ["관리비", "아파트"]):
+            return "주거 / 관리비"
+        if any(k in t for k in ["시대인재", "학원", "정상제이엘에스"]):
+            return "교육 / 학원(미분류)"
+        if any(k in t for k in ["공업사", "자동차", "정비"]):
+            return "차량유지 / 공업사"
+        if any(k in t for k in ["통신", "sk", "kt", "lgu", "브로드밴드"]):
+            return "통신비 / 인터넷"
+        if any(k in t for k in ["구글", "google", "클라우드", "소프트웨어"]):
+            return "디지털 / 클라우드"
+        if any(k in t for k in ["안경", "진정성"]):
+            return "의료 / 안경"
+        if any(k in t for k in ["실크로드", "송림가"]):
+            return "외식 / 모임"
+        return "일반 기타"
+
+    return "기타"
+
+
 def get_spending_pattern_analytics(year: int, month: int) -> SpendingPatternsResponse:
     """
     Computes comprehensive monthly spending pattern analytics:
@@ -258,6 +442,50 @@ def get_spending_pattern_analytics(year: int, month: int) -> SpendingPatternsRes
         c_diff_rate = round((c_diff / c_prev * 100), 1) if c_prev > 0 else (100.0 if c_amt > 0 else 0.0)
         c_pct = round((c_amt / total_spending * 100), 1) if total_spending > 0 else 0.0
 
+        # 1) Sub-categories (소비 목적/유형별 2Depth)
+        sub_items_map: Dict[str, Dict[str, Any]] = {}
+        # 2) Merchants (정제된 가맹점/브랜드별 2Depth)
+        merchant_items_map: Dict[str, Dict[str, Any]] = {}
+
+        for r in c_rows:
+            raw_title = r["title"] or ""
+            clean_name = clean_merchant_name(raw_title)
+            sub_name = classify_sub_category(c_meta["name"], clean_name, raw_title)
+
+            # Sub-category aggregation
+            if sub_name not in sub_items_map:
+                sub_items_map[sub_name] = {"name": sub_name, "amount": 0, "count": 0}
+            sub_items_map[sub_name]["amount"] += r["amount"]
+            sub_items_map[sub_name]["count"] += 1
+
+            # Merchant aggregation
+            if clean_name not in merchant_items_map:
+                merchant_items_map[clean_name] = {"name": clean_name, "amount": 0, "count": 0}
+            merchant_items_map[clean_name]["amount"] += r["amount"]
+            merchant_items_map[clean_name]["count"] += 1
+
+        sorted_subs = sorted(sub_items_map.values(), key=lambda x: x["amount"], reverse=True)
+        sub_items_list: List[CategorySubItem] = [
+            CategorySubItem(
+                name=s["name"],
+                amount=s["amount"],
+                count=s["count"],
+                percentage=round((s["amount"] / c_amt * 100), 1) if c_amt > 0 else 0.0,
+            )
+            for s in sorted_subs
+        ]
+
+        sorted_merchants = sorted(merchant_items_map.values(), key=lambda x: x["amount"], reverse=True)
+        merchant_items_list: List[CategorySubItem] = [
+            CategorySubItem(
+                name=m["name"],
+                amount=m["amount"],
+                count=m["count"],
+                percentage=round((m["amount"] / c_amt * 100), 1) if c_amt > 0 else 0.0,
+            )
+            for m in sorted_merchants
+        ]
+
         if c_amt != 0 or c_prev != 0:
             categories_result.append(CategorySpendingItem(
                 category_id=cid,
@@ -270,6 +498,8 @@ def get_spending_pattern_analytics(year: int, month: int) -> SpendingPatternsRes
                 diff_amount=c_diff,
                 diff_rate=c_diff_rate,
                 count=len(c_rows),
+                sub_items=sub_items_list,
+                merchant_items=merchant_items_list,
             ))
 
     # Sort categories by amount descending
