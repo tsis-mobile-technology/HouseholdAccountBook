@@ -16,6 +16,7 @@ const STATE = {
   spendingCategoryDepth: 1,
   spendingCategory2DepthMode: 'sub', // 'sub' | 'merchant'
   selectedCategoryItem: null,
+  selected1DepthCategory: null,
   spendingPaymentChart: null,
   spendingWeeklyChart: null,
   spendingDayOfWeekChart: null,
@@ -1258,14 +1259,42 @@ const SUB_CATEGORY_PALETTE = [
   '#65A30D', '#0891B2', '#9333EA', '#475569'
 ];
 
+function updateCategoryCenterInfo(label, amount, subText) {
+  const lblEl = document.getElementById('categoryCenterLabel');
+  const amtEl = document.getElementById('categoryCenterAmount');
+  const subEl = document.getElementById('categoryCenterSub');
+  if (lblEl) lblEl.textContent = label;
+  if (amtEl) amtEl.textContent = typeof amount === 'number' ? `${formatKRW(amount)}원` : amount;
+  if (subEl) subEl.textContent = subText || '';
+}
+
+function executeSelectedCategoryDrilldown() {
+  if (STATE.selected1DepthCategory) {
+    drilldownSpendingCategory(STATE.selected1DepthCategory);
+  }
+}
+
 function resetCategoryChartToDepth1() {
   STATE.spendingCategoryDepth = 1;
   STATE.selectedCategoryItem = null;
+  STATE.selected1DepthCategory = null;
 
   const modeToggle = document.getElementById('categoryChartModeToggle');
   if (modeToggle) {
     modeToggle.classList.add('hidden');
     modeToggle.classList.remove('inline-flex');
+  }
+
+  const btnDrilldown = document.getElementById('btnExecuteDrilldown');
+  if (btnDrilldown) {
+    btnDrilldown.classList.add('hidden');
+    btnDrilldown.classList.remove('inline-flex');
+  }
+
+  const btnFooterBack = document.getElementById('btnFooterBack');
+  if (btnFooterBack) {
+    btnFooterBack.classList.add('hidden');
+    btnFooterBack.classList.remove('inline-flex');
   }
 
   renderSpendingCategoryChart(STATE.spendingCategoryData);
@@ -1280,17 +1309,17 @@ function setCategoryChart2DepthMode(mode) {
 
   if (mode === 'sub') {
     if (btnSub) {
-      btnSub.className = 'px-2.5 py-0.5 rounded-md bg-white text-indigo-600 shadow-sm transition-all cursor-pointer font-extrabold';
+      btnSub.className = 'px-2.5 py-1 rounded-md bg-white text-indigo-600 shadow-sm transition-all cursor-pointer font-extrabold';
     }
     if (btnMerch) {
-      btnMerch.className = 'px-2.5 py-0.5 rounded-md text-slate-500 hover:text-slate-800 transition-all cursor-pointer font-bold';
+      btnMerch.className = 'px-2.5 py-1 rounded-md text-slate-500 hover:text-slate-800 transition-all cursor-pointer font-bold';
     }
   } else {
     if (btnSub) {
-      btnSub.className = 'px-2.5 py-0.5 rounded-md text-slate-500 hover:text-slate-800 transition-all cursor-pointer font-bold';
+      btnSub.className = 'px-2.5 py-1 rounded-md text-slate-500 hover:text-slate-800 transition-all cursor-pointer font-bold';
     }
     if (btnMerch) {
-      btnMerch.className = 'px-2.5 py-0.5 rounded-md bg-white text-indigo-600 shadow-sm transition-all cursor-pointer font-extrabold';
+      btnMerch.className = 'px-2.5 py-1 rounded-md bg-white text-indigo-600 shadow-sm transition-all cursor-pointer font-extrabold';
     }
   }
 
@@ -1315,6 +1344,7 @@ function drilldownSpendingCategory(catItem) {
   if (!catItem) return;
   STATE.spendingCategoryDepth = 2;
   STATE.selectedCategoryItem = catItem;
+  STATE.selected1DepthCategory = null;
 
   const ctx = document.getElementById('chartCategoryDonut');
   if (!ctx) return;
@@ -1344,11 +1374,11 @@ function drilldownSpendingCategory(catItem) {
   const btnMerch = document.getElementById('btnMerchantMode');
   if (btnSub && btnMerch) {
     if (isSubMode) {
-      btnSub.className = 'px-2.5 py-0.5 rounded-md bg-white text-indigo-600 shadow-sm transition-all cursor-pointer font-extrabold';
-      btnMerch.className = 'px-2.5 py-0.5 rounded-md text-slate-500 hover:text-slate-800 transition-all cursor-pointer font-bold';
+      btnSub.className = 'px-2.5 py-1 rounded-md bg-white text-indigo-600 shadow-sm transition-all cursor-pointer font-extrabold';
+      btnMerch.className = 'px-2.5 py-1 rounded-md text-slate-500 hover:text-slate-800 transition-all cursor-pointer font-bold';
     } else {
-      btnSub.className = 'px-2.5 py-0.5 rounded-md text-slate-500 hover:text-slate-800 transition-all cursor-pointer font-bold';
-      btnMerch.className = 'px-2.5 py-0.5 rounded-md bg-white text-indigo-600 shadow-sm transition-all cursor-pointer font-extrabold';
+      btnSub.className = 'px-2.5 py-1 rounded-md text-slate-500 hover:text-slate-800 transition-all cursor-pointer font-bold';
+      btnMerch.className = 'px-2.5 py-1 rounded-md bg-white text-indigo-600 shadow-sm transition-all cursor-pointer font-extrabold';
     }
   }
 
@@ -1356,12 +1386,24 @@ function drilldownSpendingCategory(catItem) {
   if (badgeEl) {
     badgeEl.textContent = `총 ${formatKRW(catItem.amount)}원 (${catItem.percentage}%)`;
   }
+
+  // 3) Footer Action Bar Updates for 2Depth
+  const btnDrilldown = document.getElementById('btnExecuteDrilldown');
+  if (btnDrilldown) {
+    btnDrilldown.classList.add('hidden');
+    btnDrilldown.classList.remove('inline-flex');
+  }
+  const btnFooterBack = document.getElementById('btnFooterBack');
+  if (btnFooterBack) {
+    btnFooterBack.classList.remove('hidden');
+    btnFooterBack.classList.add('inline-flex');
+  }
   const hintEl = document.getElementById('categoryChartHintText');
   if (hintEl) {
-    hintEl.innerHTML = `💡 상단 탭에서 <strong>소분류/가맹점</strong> 전환이 가능하며, <strong>← 전체 카테고리</strong> 버튼이나 그래프를 클릭하면 복귀합니다.`;
+    hintEl.textContent = '💡 세부 항목을 터치하면 중앙에 상세 정보가 표시되며, [전체 카테고리] 버튼으로 언제든 복귀할 수 있습니다.';
   }
 
-  // 3) Select dataset (sub_items vs merchant_items)
+  // 4) Select dataset (sub_items vs merchant_items)
   const rawItems = isSubMode ? (catItem.sub_items || []) : (catItem.merchant_items || []);
   const validItems = rawItems.filter(s => s.amount > 0);
   let displayItems = [];
@@ -1399,7 +1441,10 @@ function drilldownSpendingCategory(catItem) {
     return SUB_CATEGORY_PALETTE[idx % SUB_CATEGORY_PALETTE.length];
   });
 
-  // 4) Render 2Depth Pie/Donut Chart
+  // Set default center info for 2Depth
+  updateCategoryCenterInfo(catItem.name, catItem.amount, `전체의 ${catItem.percentage}% (${catItem.count || 0}건)`);
+
+  // 5) Render 2Depth Pie/Donut Chart (Touch displays center info, does NOT navigate away!)
   STATE.spendingCategoryChart = new Chart(ctx, {
     type: 'doughnut',
     data: {
@@ -1415,14 +1460,33 @@ function drilldownSpendingCategory(catItem) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: '58%',
+      cutout: '66%',
       onClick: (event, elements) => {
-        // 2Depth에서는 어느 조각을 클릭하든 편하게 1Depth로 복귀
-        resetCategoryChartToDepth1();
+        // [모바일/PC 친화 UX] 2Depth에서는 터치/클릭 시 1Depth로 복귀하지 않고 중앙 인포머에 해당 세부 항목 정보 표시
+        if (elements && elements.length > 0) {
+          const idx = elements[0].index;
+          const item = displayItems[idx];
+          if (item) {
+            const countText = item.count ? ` (${item.count}건)` : '';
+            updateCategoryCenterInfo(item.name, item.amount, `${item.percentage}%${countText}`);
+            if (hintEl) hintEl.textContent = `💡 '${item.name}': ${formatKRW(item.amount)}원 (${item.percentage}%${countText})`;
+          }
+        } else {
+          // 도넛 빈 곳 터치 시 2Depth 카테고리 전체 요약으로 복귀
+          updateCategoryCenterInfo(catItem.name, catItem.amount, `전체의 ${catItem.percentage}% (${catItem.count || 0}건)`);
+        }
       },
       onHover: (event, elements) => {
         const canvas = event.chart.canvas;
-        canvas.style.cursor = 'pointer';
+        canvas.style.cursor = elements && elements.length > 0 ? 'pointer' : 'default';
+        if (elements && elements.length > 0) {
+          const idx = elements[0].index;
+          const item = displayItems[idx];
+          if (item) {
+            const countText = item.count ? ` (${item.count}건)` : '';
+            updateCategoryCenterInfo(item.name, item.amount, `${item.percentage}%${countText}`);
+          }
+        }
       },
       plugins: {
         legend: {
@@ -1442,8 +1506,7 @@ function drilldownSpendingCategory(catItem) {
               const pct = item ? item.percentage : 0;
               const countText = item && item.count ? ` (${item.count}건)` : '';
               return ` ${label}: ${formatKRW(val)}원 (${pct}%)${countText}`;
-            },
-            afterLabel: () => '↩️ 클릭 시 전체 카테고리로 돌아가기'
+            }
           }
         }
       }
@@ -1454,6 +1517,7 @@ function drilldownSpendingCategory(catItem) {
 function renderSpendingCategoryChart(categories) {
   STATE.spendingCategoryDepth = 1;
   STATE.selectedCategoryItem = null;
+  STATE.selected1DepthCategory = null;
 
   const ctx = document.getElementById('chartCategoryDonut');
   if (!ctx) return;
@@ -1478,12 +1542,27 @@ function renderSpendingCategoryChart(categories) {
   if (badgeEl) {
     badgeEl.textContent = '지출 비중(%)';
   }
+  const btnDrilldown = document.getElementById('btnExecuteDrilldown');
+  if (btnDrilldown) {
+    btnDrilldown.classList.add('hidden');
+    btnDrilldown.classList.remove('inline-flex');
+  }
+  const btnFooterBack = document.getElementById('btnFooterBack');
+  if (btnFooterBack) {
+    btnFooterBack.classList.add('hidden');
+    btnFooterBack.classList.remove('inline-flex');
+  }
   const hintEl = document.getElementById('categoryChartHintText');
   if (hintEl) {
-    hintEl.textContent = '💡 파이 조각을 클릭하면 세부 지출 항목(2Depth)을 확인할 수 있습니다.';
+    hintEl.textContent = '💡 파이 조각을 탭하여 상세 정보를 확인하고, 세부 내역을 조회할 수 있습니다.';
   }
 
   const validCats = (categories || []).filter(c => c.amount > 0);
+  const totalSpendSum = validCats.reduce((acc, c) => acc + c.amount, 0);
+
+  // Set default center info for 1Depth
+  updateCategoryCenterInfo('당월 총 지출', totalSpendSum, '100%');
+
   if (validCats.length === 0) {
     STATE.spendingCategoryChart = new Chart(ctx, {
       type: 'doughnut',
@@ -1494,6 +1573,7 @@ function renderSpendingCategoryChart(categories) {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        cutout: '68%',
         plugins: {
           legend: { position: 'bottom', labels: { font: { family: 'Pretendard', size: 11, weight: 'bold' } } },
           tooltip: { enabled: false }
@@ -1507,6 +1587,9 @@ function renderSpendingCategoryChart(categories) {
   const data = validCats.map(c => c.amount);
   const colors = validCats.map(c => c.color_hex || '#94A3B8');
 
+  let lastTapIndex = -1;
+  let lastTapTime = 0;
+
   STATE.spendingCategoryChart = new Chart(ctx, {
     type: 'doughnut',
     data: {
@@ -1516,24 +1599,71 @@ function renderSpendingCategoryChart(categories) {
         backgroundColor: colors,
         borderWidth: 2,
         borderColor: '#ffffff',
-        hoverOffset: 8
+        hoverOffset: 10
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: '62%',
+      cutout: '68%',
       onClick: (event, elements) => {
-        if (!elements || elements.length === 0) return;
+        if (!elements || elements.length === 0) {
+          // 배경 탭 시 선택 해제 및 전체 합계 복귀
+          STATE.selected1DepthCategory = null;
+          updateCategoryCenterInfo('당월 총 지출', totalSpendSum, '100%');
+          if (btnDrilldown) {
+            btnDrilldown.classList.add('hidden');
+            btnDrilldown.classList.remove('inline-flex');
+          }
+          if (hintEl) hintEl.textContent = '💡 파이 조각을 탭하여 상세 정보를 확인하고, 세부 내역을 조회할 수 있습니다.';
+          return;
+        }
+
         const index = elements[0].index;
         const clickedCat = validCats[index];
-        if (clickedCat) {
+        if (!clickedCat) return;
+
+        const currentTime = new Date().getTime();
+        const tapLength = currentTime - lastTapTime;
+        const isDoubleTapOrSecondClick = (lastTapIndex === index && tapLength < 500) || (STATE.selected1DepthCategory && STATE.selected1DepthCategory.category_id === clickedCat.category_id);
+
+        STATE.selected1DepthCategory = clickedCat;
+        lastTapIndex = index;
+        lastTapTime = currentTime;
+
+        // 1) 중앙 인포머 즉시 업데이트 (모바일 손가락 가림 문제 완벽 해결)
+        updateCategoryCenterInfo(clickedCat.name, clickedCat.amount, `${clickedCat.percentage}% (${clickedCat.count || 0}건)`);
+
+        // 2) 하단에 명시적인 세부내역 보기 버튼 노출
+        if (btnDrilldown) {
+          btnDrilldown.classList.remove('hidden');
+          btnDrilldown.classList.add('inline-flex');
+          const btnText = document.getElementById('btnExecuteDrilldownText');
+          if (btnText) {
+            btnText.textContent = `🔍 '${clickedCat.name}' 세부 내역 보기`;
+          }
+        }
+        if (hintEl) {
+          hintEl.innerHTML = `💡 <strong>'${escapeHtml(clickedCat.name)}'</strong> 선택됨. 아래 [세부 내역 보기] 버튼을 누르거나 한 번 더 터치하면 진입합니다.`;
+        }
+
+        // 3) 더블 탭(또는 같은 슬라이스를 두 번 탭/클릭) 시 즉시 진입
+        if (isDoubleTapOrSecondClick && tapLength > 50) {
           drilldownSpendingCategory(clickedCat);
         }
       },
       onHover: (event, elements) => {
         const canvas = event.chart.canvas;
         canvas.style.cursor = elements && elements.length > 0 ? 'pointer' : 'default';
+        if (elements && elements.length > 0) {
+          const index = elements[0].index;
+          const hoveredCat = validCats[index];
+          if (hoveredCat) {
+            updateCategoryCenterInfo(hoveredCat.name, hoveredCat.amount, `${hoveredCat.percentage}% (${hoveredCat.count || 0}건)`);
+          }
+        } else if (!STATE.selected1DepthCategory) {
+          updateCategoryCenterInfo('당월 총 지출', totalSpendSum, '100%');
+        }
       },
       plugins: {
         legend: {
@@ -1553,7 +1683,7 @@ function renderSpendingCategoryChart(categories) {
               const pct = cat ? cat.percentage : 0;
               return ` ${label}: ${formatKRW(val)}원 (${pct}%)`;
             },
-            afterLabel: () => '👉 클릭 시 세부 지출(2Depth) 보기'
+            afterLabel: () => '👉 탭: 정보 확인 / 두 번 탭: 세부보기'
           }
         }
       }

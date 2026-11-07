@@ -581,24 +581,45 @@
               <h4 id="categoryChartTitle" class="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
                 <span>🍩 카테고리별 소비 점유율</span>
               </h4>
-              <button id="btnCategoryChartBack" type="button" onclick="resetCategoryChartToDepth1()" class="hidden items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-full transition-all shadow-sm cursor-pointer hover:shadow">
+              <button id="btnCategoryChartBack" type="button" onclick="resetCategoryChartToDepth1()" class="hidden items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-full transition-all shadow-sm cursor-pointer hover:shadow">
                 <i class="fas fa-arrow-left text-[10px]"></i> 전체 카테고리
               </button>
             </div>
             <div class="flex items-center gap-2">
               <!-- 2Depth 하이브리드 토글 (소분류별 vs 가맹점별) -->
               <div id="categoryChartModeToggle" class="hidden items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-bold">
-                <button id="btnSubCategoryMode" type="button" onclick="setCategoryChart2DepthMode('sub')" class="px-2.5 py-0.5 rounded-md bg-white text-indigo-600 shadow-sm transition-all cursor-pointer">소분류별</button>
-                <button id="btnMerchantMode" type="button" onclick="setCategoryChart2DepthMode('merchant')" class="px-2.5 py-0.5 rounded-md text-slate-500 hover:text-slate-800 transition-all cursor-pointer">가맹점별</button>
+                <button id="btnSubCategoryMode" type="button" onclick="setCategoryChart2DepthMode('sub')" class="px-2.5 py-1 rounded-md bg-white text-indigo-600 shadow-sm transition-all cursor-pointer font-extrabold">소분류별</button>
+                <button id="btnMerchantMode" type="button" onclick="setCategoryChart2DepthMode('merchant')" class="px-2.5 py-1 rounded-md text-slate-500 hover:text-slate-800 transition-all cursor-pointer font-bold">가맹점별</button>
               </div>
               <span id="categoryChartSubBadge" class="text-xs font-semibold text-slate-500">지출 비중(%)</span>
             </div>
           </div>
+
+          <!-- 도넛 캔버스 & 중앙 인포머 (토스/뱅크샐러드 표준 UX) -->
           <div class="relative h-64 sm:h-72 flex items-center justify-center">
             <canvas id="chartCategoryDonut"></canvas>
+            <!-- 도넛 중앙 동적 인포머 -->
+            <div id="categoryDonutCenterInfo" class="absolute pointer-events-none flex flex-col items-center justify-center text-center px-2 select-none transition-all">
+              <span id="categoryCenterLabel" class="text-xs font-bold text-slate-500 truncate max-w-[120px] sm:max-w-[160px]">전체 지출</span>
+              <span id="categoryCenterAmount" class="text-base sm:text-lg font-black text-slate-900 font-mono tracking-tight my-0.5">0원</span>
+              <span id="categoryCenterSub" class="text-[11px] font-bold text-indigo-600">100%</span>
+            </div>
           </div>
-          <div id="categoryChartHint" class="text-[11px] font-medium text-slate-600 text-center mt-2 flex items-center justify-center gap-1">
-            <span id="categoryChartHintText">💡 파이 조각을 클릭하면 세부 지출 항목(2Depth)을 확인할 수 있습니다.</span>
+
+          <!-- 하단 액션 & 힌트 바 -->
+          <div id="categoryChartActionBar" class="mt-3 flex flex-col sm:flex-row items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
+            <div id="categoryChartHint" class="text-[11px] font-medium text-slate-500 text-center sm:text-left flex items-center gap-1">
+              <span id="categoryChartHintText">💡 파이 조각을 탭하면 중앙에 상세 정보가 표시됩니다.</span>
+            </div>
+            <div class="flex items-center gap-2 w-full sm:w-auto justify-center">
+              <button id="btnExecuteDrilldown" type="button" onclick="executeSelectedCategoryDrilldown()" class="hidden items-center justify-center gap-1.5 w-full sm:w-auto px-3.5 py-1.5 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-lg shadow-sm transition-all cursor-pointer">
+                <span id="btnExecuteDrilldownText">세부 내역 보기</span>
+                <i class="fas fa-chevron-right text-[10px]"></i>
+              </button>
+              <button id="btnFooterBack" type="button" onclick="resetCategoryChartToDepth1()" class="hidden items-center justify-center gap-1.5 w-full sm:w-auto px-3.5 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition-all cursor-pointer">
+                <i class="fas fa-arrow-left text-[10px]"></i> 전체 카테고리
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1091,6 +1112,6 @@
   </nav>
 
   <!-- Main Application Script -->
-  <script src="/static/js/app.js?v=20261107-01"></script>
+  <script src="/static/js/app.js?v=20261107-02"></script>
 </body>
 </html>

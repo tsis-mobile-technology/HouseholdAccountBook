@@ -242,6 +242,9 @@ def test_frontend_assets_served():
     assert 'id="categoryChartModeToggle"' in html
     assert 'id="btnSubCategoryMode"' in html
     assert 'id="btnMerchantMode"' in html
+    assert 'id="categoryDonutCenterInfo"' in html
+    assert 'id="btnExecuteDrilldown"' in html
+    assert 'id="btnFooterBack"' in html
     assert 'openCardUploadModal()' in html
 
     # 2. Verify app.js is served and contains new logic
@@ -257,6 +260,8 @@ def test_frontend_assets_served():
     assert "resetCategoryChartToDepth1" in js
     assert "setCategoryChart2DepthMode" in js
     assert "selectCategoryFromTable" in js
+    assert "updateCategoryCenterInfo" in js
+    assert "executeSelectedCategoryDrilldown" in js
 
 def test_category_drilldown_sub_items():
     # Insert specific category transactions with diverse titles
