@@ -119,8 +119,8 @@ function prevMonth() {
   }
   STATE.currentMonth = m;
   updateHeaderMonthLabel();
-  renderMonthTabs();
   if (STATE.currentTab === 'spending') {
+    updateMonthTabsHighlight(m);
     loadSpendingPatterns();
   } else if (STATE.currentTab === 'annual') {
     loadAnnualDashboard();
@@ -141,8 +141,8 @@ function nextMonth() {
   }
   STATE.currentMonth = m;
   updateHeaderMonthLabel();
-  renderMonthTabs();
   if (STATE.currentTab === 'spending') {
+    updateMonthTabsHighlight(m);
     loadSpendingPatterns();
   } else if (STATE.currentTab === 'annual') {
     loadAnnualDashboard();
@@ -180,7 +180,34 @@ async function loadNetworkInfo() {
   }
 }
 
-// --- Month Tabs Generation ---
+// --- Month Tabs Generation & Navigation ---
+function updateMonthTabsHighlight(activeMonth) {
+  const targetMonth = activeMonth !== undefined ? activeMonth : STATE.currentMonth;
+  for (let m = 1; m <= 12; m++) {
+    const btn = document.getElementById(`tab-btn-month-${m}`);
+    if (!btn) continue;
+    // 월간 상세(숫자 탭)이거나 소비 분석('spending')일 때만 선택된 월 버튼 활성화
+    if ((typeof STATE.currentTab === 'number' || STATE.currentTab === 'spending') && m === targetMonth) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  }
+}
+
+function onMonthTabClick(m) {
+  STATE.currentMonth = m;
+  if (STATE.currentTab === 'spending') {
+    // 소비 분석 중일 때: 소비 분석 화면 유지한 채 해당 월로 이동
+    updateHeaderMonthLabel();
+    updateMonthTabsHighlight(m);
+    loadSpendingPatterns();
+  } else {
+    // 월간 상세(숫자)이거나, 오늘 빠른등록(today), 연간 대시보드(annual)일 때: 월간 상세(m월)로 이동
+    switchTab(m);
+  }
+}
+
 function renderMonthTabs() {
   const container = document.getElementById('monthTabsContainer');
   if (!container) return;
@@ -189,11 +216,13 @@ function renderMonthTabs() {
   for (let m = 1; m <= 12; m++) {
     const btn = document.createElement('button');
     btn.id = `tab-btn-month-${m}`;
-    btn.className = `category-chip text-xs px-3 py-1.5 font-bold ${m === STATE.currentMonth ? 'border-purple-500 bg-white text-purple-900 shadow-sm' : ''}`;
+    btn.type = 'button';
+    btn.className = 'category-chip text-xs px-3 py-1.5 font-bold';
     btn.textContent = `${m}월`;
-    btn.onclick = () => switchTab(m);
+    btn.onclick = () => onMonthTabClick(m);
     container.appendChild(btn);
   }
+  updateMonthTabsHighlight();
 }
 
 // --- Category & Payment Rendering ---
@@ -266,6 +295,10 @@ function clearAmount() {
 
 // --- Tab Navigation ---
 function switchTab(tab) {
+  if (tab === 'month') {
+    tab = STATE.currentMonth || (new Date().getMonth() + 1);
+  }
+
   STATE.currentTab = tab;
 
   // View containers
@@ -290,6 +323,7 @@ function switchTab(tab) {
     const mb = document.getElementById('mobile-nav-today');
     if (mb) mb.classList.add('active');
     updateHeaderMonthLabel();
+    updateMonthTabsHighlight();
     loadTodayOverview();
   } else if (tab === 'annual') {
     viewAnnual.classList.remove('hidden');
@@ -297,6 +331,7 @@ function switchTab(tab) {
     if (b) b.classList.add('active');
     const mb = document.getElementById('mobile-nav-annual');
     if (mb) mb.classList.add('active');
+    updateMonthTabsHighlight();
     loadAnnualDashboard();
   } else if (tab === 'spending') {
     if (viewSpending) viewSpending.classList.remove('hidden');
@@ -305,15 +340,19 @@ function switchTab(tab) {
     const mb = document.getElementById('mobile-nav-spending');
     if (mb) mb.classList.add('active');
     updateHeaderMonthLabel();
+    updateMonthTabsHighlight();
     loadSpendingPatterns();
   } else if (typeof tab === 'number') {
     STATE.currentMonth = tab;
     viewMonth.classList.remove('hidden');
+    const detailBtn = document.getElementById('tab-btn-month-detail');
+    if (detailBtn) detailBtn.classList.add('active');
     const b = document.getElementById(`tab-btn-month-${tab}`);
     if (b) b.classList.add('active');
     const mb = document.getElementById('mobile-nav-month');
     if (mb) mb.classList.add('active');
     updateHeaderMonthLabel();
+    updateMonthTabsHighlight(tab);
     loadMonthDetail(tab);
   }
 }

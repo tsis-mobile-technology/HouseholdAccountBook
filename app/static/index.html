@@ -23,17 +23,6 @@
       <span class="font-black text-sm sm:text-base text-slate-900 tracking-tight whitespace-nowrap">스마트 가계부</span>
     </div>
 
-    <!-- Center: Month Stepper (Compact & Never Wraps) -->
-    <div class="month-stepper">
-      <button type="button" onclick="prevMonth()" class="stepper-btn" title="이전 달">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
-      </button>
-      <span id="headerMonthLabel" onclick="switchToCurrentMonth()" class="stepper-label cursor-pointer" title="현재 월로 이동">2026년 9월</span>
-      <button type="button" onclick="nextMonth()" class="stepper-btn" title="다음 달">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path></svg>
-      </button>
-    </div>
-
     <!-- Right Header Action Icons -->
     <div class="flex items-center gap-1.5 flex-shrink-0">
       <!-- Hidden Year Selector for internal state syncing -->
@@ -67,20 +56,23 @@
     </div>
   </header>
 
-  <!-- PC / Tablet Tabs Navigation (Visible on md+) -->
-  <nav class="hidden md:flex items-center justify-start gap-1.5 px-6 py-2.5 overflow-x-auto border-b border-white/60 bg-white/40">
+  <!-- Tabs Navigation (Responsive scrollable) -->
+  <nav class="flex items-center justify-start gap-1.5 px-3 sm:px-6 py-2.5 overflow-x-auto border-b border-white/60 bg-white/40">
     <button onclick="switchTab('today')" id="tab-btn-today" class="category-chip active font-bold">
       ⚡ 오늘 빠른등록
     </button>
-    <button onclick="switchTab('spending')" id="tab-btn-spending" class="category-chip font-bold">
-      📈 소비 분석
+    <button onclick="switchTab('month')" id="tab-btn-month-detail" class="category-chip font-bold">
+      📅 월간 상세
     </button>
     <button onclick="switchTab('annual')" id="tab-btn-annual" class="category-chip font-bold">
       📊 연간 대시보드
     </button>
-    <div class="h-4 w-px bg-gray-300 mx-1"></div>
+    <button onclick="switchTab('spending')" id="tab-btn-spending" class="category-chip font-bold">
+      📈 소비 분석
+    </button>
+    <div class="h-4 w-px bg-gray-300 mx-1 flex-shrink-0"></div>
     <!-- 1월 ~ 12월 Tabs -->
-    <div id="monthTabsContainer" class="flex items-center gap-1">
+    <div id="monthTabsContainer" class="flex items-center gap-1 flex-shrink-0">
       <!-- Injected by JS -->
     </div>
   </nav>
