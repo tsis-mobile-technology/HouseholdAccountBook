@@ -1498,16 +1498,7 @@ function drilldownSpendingCategory(catItem) {
           }
         },
         tooltip: {
-          callbacks: {
-            label: (ctx) => {
-              const label = ctx.label || '';
-              const val = ctx.raw || 0;
-              const item = displayItems[ctx.dataIndex];
-              const pct = item ? item.percentage : 0;
-              const countText = item && item.count ? ` (${item.count}건)` : '';
-              return ` ${label}: ${formatKRW(val)}원 (${pct}%)${countText}`;
-            }
-          }
+          enabled: false
         }
       }
     }
@@ -1675,16 +1666,7 @@ function renderSpendingCategoryChart(categories) {
           }
         },
         tooltip: {
-          callbacks: {
-            label: (ctx) => {
-              const label = ctx.label || '';
-              const val = ctx.raw || 0;
-              const cat = validCats[ctx.dataIndex];
-              const pct = cat ? cat.percentage : 0;
-              return ` ${label}: ${formatKRW(val)}원 (${pct}%)`;
-            },
-            afterLabel: () => '👉 탭: 정보 확인 / 두 번 탭: 세부보기'
-          }
+          enabled: false
         }
       }
     }
